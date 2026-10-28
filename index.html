@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<title>GiftXchange — обмен NFT-подарками</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="core.js"></script>
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#000;--s1:#121214;--s2:#1b1b1f;--s3:#26262b;--s4:#313137;
+  --line:rgba(255,255,255,.065);--line2:rgba(255,255,255,.11);
+  --text:#fff;--muted:#8c8d96;--dim:#5c5d66;
+  --blue:#2f8cff;--blue-d:#1f74e6;--blue-t:rgba(47,140,255,.14);
+  --ok:#30c77b;--warn:#ffb340;--bad:#ff4d5e;--star:#ffc83d;
+  --safe-b:env(safe-area-inset-bottom,0px);--safe-t:env(safe-area-inset-top,0px);
+  --ease:cubic-bezier(.2,.8,.2,1);--spring:cubic-bezier(.34,1.4,.64,1);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text)}
+body{font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Inter,Arial,sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:calc(92px + var(--safe-b));overscroll-behavior-y:none;min-height:100vh;-webkit-text-size-adjust:100%}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none;padding:0;touch-action:manipulation}
+a{color:inherit;text-decoration:none}
+img{display:block;max-width:100%}
+.bgfx{display:none}
+.app{max-width:720px;margin:0 auto;position:relative}
+/* Поверхность (раньше «стекло») — сплошная, без размытия: дёшево для GPU */
+.glass{background:var(--s1);border:1px solid var(--line)}
+
+/* Шапка */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:calc(10px + var(--safe-t)) 14px 8px;gap:10px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;letter-spacing:-.4px;min-width:0}
+.logo{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:var(--blue);flex:none}
+.logo svg{width:19px;height:19px}
+.brand small{display:block;font-size:11px;font-weight:600;color:var(--muted);letter-spacing:0;margin-top:1px}
+.pill-demo{font-size:9.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--warn);background:rgba(255,179,64,.12);border-radius:6px;padding:2px 6px;margin-left:6px;vertical-align:2px}
+.tright{display:flex;align-items:center;gap:6px;min-width:0}
+.me{display:flex;align-items:center;gap:7px;border-radius:999px;padding:3px 11px 3px 3px;font-size:13px;font-weight:700;max-width:160px;background:var(--s2);border:0}
+.me .ava{width:28px;height:28px}
+.me span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plusb{width:34px;height:34px;border-radius:50%;background:var(--blue);display:grid;place-items:center;flex:none;transition:transform .15s var(--ease)}
+.plusb:active{transform:scale(.9)}
+.plusb svg{width:18px;height:18px}
+.ava{border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:12px;color:#fff;background:var(--blue);overflow:hidden;flex:none}
+.ava img{width:100%;height:100%;object-fit:cover}
+
+/* Промо-полоса вместо большого баннера */
+.promo{margin:4px 14px 10px;border-radius:16px;padding:12px 12px 12px 14px;display:flex;align-items:center;gap:12px;width:calc(100% - 28px);text-align:left;
+  background:linear-gradient(100deg,#123a73 0%,#16274a 55%,#141a2a 100%);border:1px solid rgba(80,150,255,.22);transition:transform .15s var(--ease)}
+.promo:active{transform:scale(.985)}
+.promo .pi{width:40px;height:40px;border-radius:12px;background:rgba(47,140,255,.28);display:grid;place-items:center;flex:none;color:#cfe3ff}
+.promo .pi svg{width:20px;height:20px}
+.promo div{flex:1;min-width:0}
+.promo b{display:block;font-size:14.5px;font-weight:750}
+.promo span{display:block;font-size:12px;color:#a9bddf;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.promo .go{color:#a9bddf;flex:none;display:grid}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);margin:0 14px 10px;border-radius:14px;background:var(--s1);border:1px solid var(--line)}
+.stat{padding:9px 12px;border-left:1px solid var(--line)}
+.stat:first-child{border-left:0}
+.stat b{display:block;font-size:16px;font-weight:750;font-variant-numeric:tabular-nums}
+.stat span{display:block;color:var(--muted);font-size:11px}
+
+/* Поиск и фильтры — сплошной фон, без размытия */
+.toolbar{position:sticky;top:0;z-index:5;padding:8px 0 4px;background:var(--bg)}
+.searchrow{display:flex;gap:8px;padding:0 14px 8px}
+.search{flex:1;display:flex;align-items:center;gap:8px;border-radius:12px;padding:0 11px;min-width:0;background:var(--s2);border:1px solid transparent;transition:border-color .2s}
+.search:focus-within{border-color:var(--blue)}
+.search svg{width:17px;height:17px;color:var(--dim);flex:none}
+.search input{flex:1;min-width:0;background:none;border:0;outline:0;padding:10px 0;font-size:14px}
+.search input::placeholder{color:var(--dim)}
+.search .clear{display:none;width:20px;height:20px;border-radius:50%;background:var(--s4);color:var(--muted);font-size:14px;line-height:1}
+.search.has .clear{display:grid;place-items:center}
+.sq{width:42px;height:42px;flex:none;border-radius:12px;display:grid;place-items:center;color:#cfd0d8;background:var(--s2);border:0;transition:transform .15s var(--ease)}
+.sq:active{transform:scale(.92)}
+.sq svg{width:18px;height:18px}
+.chips{display:flex;gap:6px;padding:0 14px 6px;overflow-x:auto;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{white-space:nowrap;border-radius:10px;padding:7px 12px;font-size:12.5px;font-weight:650;color:#c4c5cd;background:var(--s2);border:0;transition:background .2s,color .2s,transform .15s var(--ease)}
+.chip .n{opacity:.5;margin-left:5px;font-variant-numeric:tabular-nums}
+.chip.active{background:var(--blue-t);color:#7db6ff}
+.chip.active .n{opacity:.8}
+
+.shead{display:flex;align-items:baseline;justify-content:space-between;padding:10px 16px 8px}
+.shead h2{margin:0;font-size:20px;letter-spacing:-.4px;font-weight:800}
+.shead small{color:var(--muted);font-size:12px}
+.sub{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin:16px 4px 8px;display:flex;justify-content:space-between}
+.content{padding:0 12px}
+
+/* Карточки как в Portals: плотная сетка, фон подарка, синяя кнопка */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+@media(max-width:350px){.grid{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:600px){.grid{grid-template-columns:repeat(4,1fr)}}
+.card{border-radius:14px;overflow:hidden;position:relative;text-align:left;padding:0;cursor:pointer;background:var(--s1);border:1px solid var(--line);
+  transition:transform .18s var(--ease);contain:layout paint;content-visibility:auto;contain-intrinsic-size:auto 200px}
+.card:active{transform:scale(.965)}
+.thumb{position:relative;aspect-ratio:1;overflow:hidden;background:var(--s2)}
+.thumb img{width:100%;height:100%;object-fit:cover;transition:opacity .3s}
+.fallback{position:absolute;inset:0;display:grid;place-items:center;font-size:34px;background:radial-gradient(circle at 50% 40%,#2a2d3a,#15161c)}
+.tag{position:absolute;font-size:10px;font-weight:750;padding:3px 6px;border-radius:6px;background:rgba(0,0,0,.55);font-variant-numeric:tabular-nums;line-height:1.2}
+.tag.st{left:5px;top:5px}
+.tag.st.ok{display:none}
+.tag.st.busy{color:var(--warn)}.tag.st.mine{color:#8cc4ff}.tag.st.out{color:#d2b8ff}
+.tag.num{display:none}
+.favb{position:absolute;right:5px;top:5px;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:rgba(0,0,0,.45);color:#fff;transition:transform .2s var(--spring)}
+.favb:active{transform:scale(.82)}
+.favb svg{width:13px;height:13px}
+.favb.on{color:#ff4d6d}.favb.on svg{fill:currentColor}
+.info{padding:7px 7px 7px}
+.info .t{font-weight:700;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.1px}
+.info .o{display:flex;align-items:center;gap:4px;margin-top:1px;color:var(--muted);font-size:11px;min-width:0;white-space:nowrap;overflow:hidden}
+.info .o span{overflow:hidden;text-overflow:ellipsis}
+.cta{position:relative;margin-top:7px;width:100%;border-radius:9px;padding:7px 0;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:5px;transition:transform .15s var(--ease),background .2s}
+.cta:active{transform:scale(.95)}
+.cta svg{width:13px;height:13px}
+.cta.p{background:var(--blue);color:#fff}
+.cta.p:active{background:var(--blue-d)}
+.cta.s{background:var(--s3);color:#d4d5dc}
+
+.sk{background:var(--s2);border-radius:8px;animation:pulse 1.1s ease-in-out infinite alternate}
+@keyframes pulse{from{opacity:.55}to{opacity:1}}
+
+.empty{border-radius:18px;padding:28px 20px;text-align:center}
+.empty .ic{width:58px;height:58px;border-radius:18px;margin:0 auto 12px;display:grid;place-items:center;background:var(--blue-t);color:#7db6ff}
+.empty .ic svg{width:26px;height:26px}
+.empty h3{margin:0 0 6px;font-size:17px}
+.empty p{margin:0 auto 16px;color:var(--muted);font-size:13px;line-height:1.55;max-width:320px}
+
+.btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:12px;padding:12px 16px;font-weight:700;font-size:14.5px;background:var(--blue);color:#fff;transition:transform .15s var(--ease),opacity .2s,background .2s}
+.btn svg{width:18px;height:18px;flex:none}
+.btn:active{transform:scale(.97)}
+.btn[disabled]{opacity:.38;pointer-events:none}
+.btn.block{width:100%}
+.btn.sec{background:var(--s3);color:#e6e7ec}
+.btn.danger{background:rgba(255,77,94,.13);color:#ff6b79}
+.btn.okb{background:var(--ok);color:#03200f}
+.btn.star{background:linear-gradient(135deg,#ffb020,#ffd34d);color:#3a2500}
+.btn.sm{padding:8px 11px;font-size:13px;border-radius:10px}
+
+.addcard{border-radius:16px;padding:13px;display:flex;align-items:center;gap:12px;margin:0 0 6px;width:100%;text-align:left;background:var(--s1);border:1px dashed rgba(47,140,255,.45);transition:transform .15s var(--ease)}
+.addcard .ic{width:42px;height:42px;border-radius:12px;background:var(--blue);display:grid;place-items:center;flex:none}
+.addcard .ic svg{width:21px;height:21px}
+.addcard div{flex:1;min-width:0}
+.addcard b{display:block;font-size:14.5px}
+.addcard span{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.addcard .go{width:30px;height:30px;border-radius:50%;background:var(--s3);display:grid;place-items:center;flex:none;color:var(--muted)}
+
+.item{border-radius:14px;padding:9px;display:flex;align-items:center;gap:11px;margin-bottom:6px}
+.item .pic{width:48px;height:48px;border-radius:11px;overflow:hidden;flex:none;background:var(--s2);position:relative}
+.item .pic img{width:100%;height:100%;object-fit:cover}
+.item .tx{flex:1;min-width:0}
+.item .tx b{display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .tx small{display:block;color:var(--muted);font-size:12px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .side-btn{flex:none}
+.badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:4px 8px;border-radius:7px;white-space:nowrap}
+.badge.pending,.badge.awaiting_payment,.badge.payment_claimed{background:rgba(255,179,64,.13);color:var(--warn)}
+.badge.accepted,.badge.approved,.badge.sent{background:rgba(48,199,123,.13);color:var(--ok)}
+.badge.paid{background:var(--blue-t);color:#7db6ff}
+.badge.declined,.badge.cancelled,.badge.rejected{background:rgba(255,77,94,.12);color:#ff6b79}
+
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;border-radius:12px;padding:3px;margin:0 0 12px;gap:3px;background:var(--s2)!important;border:0!important}
+.seg button{padding:8px 4px;border-radius:9px;font-size:13px;font-weight:650;color:var(--muted);transition:background .2s,color .2s;white-space:nowrap}
+.seg button.active{background:var(--s4);color:var(--text)}
+.offer{border-radius:16px;padding:12px;margin-bottom:8px}
+.otop{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px}
+.who{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;min-width:0}
+.who .ava{width:26px;height:26px}
+.who span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.otime{color:var(--dim);font-size:11.5px;white-space:nowrap}
+.swaprow{display:grid;grid-template-columns:1fr 30px 1fr;align-items:center;gap:6px}
+.side{background:var(--s2);border-radius:12px;padding:8px;min-width:0}
+.side small{display:block;color:var(--dim);font-size:10px;font-weight:750;text-transform:uppercase;letter-spacing:.6px;margin:0 0 6px 1px}
+.minis{display:flex;flex-wrap:wrap;gap:5px}
+.mini{width:42px;height:42px;border-radius:10px;overflow:hidden;background:var(--s3);position:relative;flex:none}
+.mini img{width:100%;height:100%;object-fit:cover}
+.mname{font-size:12px;font-weight:650;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arrow{width:30px;height:30px;border-radius:50%;background:var(--blue);display:grid;place-items:center;color:#fff}
+.arrow svg{width:15px;height:15px}
+.oact{display:flex;gap:8px;margin-top:10px}
+.oact .btn{flex:1;padding:10px;font-size:13px}
+.quote{margin-top:10px;color:#cfd0d8;font-size:13px;background:var(--s2);border-radius:10px;padding:8px 10px}
+
+.pcard{border-radius:18px;padding:16px;display:flex;align-items:center;gap:14px;margin:0 0 10px}
+.pcard .ava{width:56px;height:56px;font-size:20px}
+.pcard h3{margin:0;font-size:18px;letter-spacing:-.3px}
+.pcard p{margin:3px 0 0;color:var(--muted);font-size:13px}
+.adm{display:inline-flex;align-items:center;font-size:10.5px;font-weight:750;color:#7db6ff;background:var(--blue-t);border-radius:6px;padding:2px 7px;margin-left:6px;vertical-align:2px}
+.list{border-radius:16px;margin:0 0 10px;overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;padding:12px 14px;width:100%;text-align:left;border-bottom:1px solid var(--line);transition:background .15s}
+.row:last-child{border-bottom:0}
+.row:active{background:var(--s2)}
+.row .ri{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;background:var(--blue-t);color:#7db6ff;flex:none}
+.row .ri svg{width:16px;height:16px}
+.row .rt{flex:1;font-size:14px;font-weight:600}
+.row .rt small{display:block;color:var(--dim);font-size:11.5px;font-weight:500;margin-top:1px}
+.row .rv{color:var(--muted);font-size:13px;display:flex}
+.steps{counter-reset:s;margin:0;padding:0;list-style:none}
+.steps li{counter-increment:s;display:flex;gap:12px;padding:8px 0;color:#d0d1d8;font-size:13.5px;line-height:1.5}
+.steps li:before{content:counter(s);flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--blue);color:#fff;font-weight:800;font-size:12px}
+.steps b{color:#fff}
+
+/* Нижнее меню как в Portals: иконка + подпись, активная — синяя */
+.dock{position:fixed;z-index:30;left:50%;bottom:calc(10px + var(--safe-b));transform:translateX(-50%);width:min(440px,calc(100% - 20px));display:flex;align-items:stretch;padding:5px;border-radius:22px;
+  background:rgba(22,22,25,.97);border:1px solid var(--line2);box-shadow:0 10px 30px rgba(0,0,0,.6)}
+.dock .nb{flex:1;position:relative;height:50px;border-radius:17px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:#7c7d86;transition:color .2s,background .25s var(--ease),transform .15s var(--ease)}
+.dock .nb:active{transform:scale(.92)}
+.dock .nb svg{width:22px;height:22px;flex:none}
+.dock .nb .lbl{font-size:10.5px;font-weight:650;white-space:nowrap}
+.dock .nb.active{color:var(--blue);background:var(--blue-t)}
+.dock .dot{position:absolute;top:3px;left:calc(50% + 6px);min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--bad);color:#fff;font-size:10px;font-weight:800;display:none;place-items:center;border:2px solid #161619}
+.dock .dot.show{display:grid}
+
+/* Нижний лист — сплошной, анимация только transform */
+.sback{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.62);opacity:0;pointer-events:none;transition:opacity .28s var(--ease)}
+.sback.show{opacity:1;pointer-events:auto}
+.sheet{position:fixed;z-index:41;left:0;right:0;margin:0 auto;bottom:0;width:min(560px,100%);max-height:90vh;overflow:auto;transform:translate3d(0,105%,0);transition:transform .42s cubic-bezier(.2,.9,.25,1);will-change:transform;overscroll-behavior:contain;
+  background:var(--s1);border:1px solid var(--line2);border-bottom:0;border-radius:20px 20px 0 0;padding:6px 14px calc(16px + var(--safe-b));contain:layout paint}
+.sheet.show{transform:translate3d(0,0,0)}
+.sheet.drag{transition:none}
+.sheet:not(.show){transition-duration:.28s;transition-timing-function:var(--ease)}
+.grab{width:36px;height:5px;border-radius:3px;background:var(--s4);margin:2px auto 10px}
+.grabzone{padding:6px 0 2px;margin:-6px -14px 0;touch-action:none;cursor:grab}
+.shh{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.shh h3{margin:0;font-size:18px;letter-spacing:-.3px}
+.x{width:32px;height:32px;border-radius:50%;background:var(--s3);border:0;display:grid;place-items:center;color:var(--muted);flex:none;transition:transform .15s var(--ease)}
+.x svg{width:14px;height:14px}
+.x:active{transform:scale(.9)}
+.big{border-radius:18px;overflow:hidden;aspect-ratio:1;max-width:300px;margin:0 auto 12px;background:var(--s2);position:relative}
+.big img{width:100%;height:100%;object-fit:cover}
+.dtitle{text-align:center;margin-bottom:12px}
+.dtitle h2{margin:0;font-size:22px;letter-spacing:-.4px}
+.dtitle span{color:var(--muted);font-size:13px}
+.attrs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+.attr{border-radius:12px;padding:8px 10px;min-width:0;background:var(--s2)!important;border:0!important}
+.attr small{display:block;color:var(--dim);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.attr b{display:block;font-size:13px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.attr i{font-style:normal;color:#7db6ff;font-size:11px;font-weight:700}
+.orow{display:flex;align-items:center;gap:10px;border-radius:12px;padding:9px 11px;margin-bottom:12px;background:var(--s2)!important;border:0!important}
+.orow .ava{width:34px;height:34px}
+.orow>div:not(.ava){flex:1;min-width:0}
+.orow small{display:block;color:var(--dim);font-size:11px}
+.orow b{font-size:14px}
+.acts{display:grid;grid-template-columns:1fr auto;gap:8px}
+.acts .sq{width:48px;height:auto}
+.note{display:flex;gap:10px;align-items:flex-start;border-radius:12px;padding:10px 12px;font-size:12.5px;line-height:1.5;color:#c4c5cd;margin-bottom:12px;background:var(--s2)!important;border:0!important}
+.note svg{width:17px;height:17px;flex:none;color:#7db6ff;margin-top:1px}
+.note.warn{background:rgba(255,179,64,.09)!important;color:#ecd9ad}
+.note.warn svg{color:var(--warn)}
+.note b{color:#fff}
+.ptarget{display:flex;align-items:center;gap:12px;border-radius:12px;padding:9px;margin-bottom:12px;background:var(--s2)!important;border:0!important}
+.ptarget .mini{width:52px;height:52px}
+.ptarget div{min-width:0}
+.ptarget small{color:var(--dim);font-size:11px;display:block}
+.ptarget b{font-size:14px}
+.plabel{font-size:13px;color:var(--muted);margin:0 2px 8px;display:flex;justify-content:space-between}
+.pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px}
+@media(min-width:420px){.pgrid{grid-template-columns:repeat(4,1fr)}}
+.pick{position:relative;border-radius:12px;overflow:hidden;border:2px solid transparent;background:var(--s2);transition:border-color .15s,transform .15s var(--ease)}
+.pick:active{transform:scale(.95)}
+.pick img{aspect-ratio:1;width:100%;object-fit:cover}
+.pick .pn{font-size:11px;font-weight:650;padding:5px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}
+.pick .ck{position:absolute;right:5px;top:5px;width:20px;height:20px;border-radius:50%;border:2px solid rgba(255,255,255,.6);background:rgba(0,0,0,.4);display:grid;place-items:center}
+.pick .ck svg{width:11px;height:11px;opacity:0}
+.pick.on{border-color:var(--blue)}
+.pick.on .ck{background:var(--blue);border-color:var(--blue)}
+.pick.on .ck svg{opacity:1}
+.field{width:100%;background:var(--s2);border:1px solid transparent;border-radius:12px;padding:12px;margin-bottom:12px;outline:0;font-size:14px;transition:border-color .2s}
+.field:focus{border-color:var(--blue)}
+.flabel{font-size:12px;color:var(--muted);font-weight:650;margin:0 2px 6px;display:block}
+.preview{display:flex;align-items:center;gap:12px;border-radius:12px;padding:9px;margin-bottom:12px;background:var(--s2)!important;border:0!important;animation:rise .25s var(--ease)}
+.preview .mini{width:52px;height:52px}
+.preview b{display:block;font-size:14px}
+.preview small{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.feebox{border-radius:14px;padding:12px;margin-bottom:12px;display:flex;align-items:center;gap:12px;background:rgba(255,179,32,.1);border:1px solid rgba(255,200,61,.22)}
+.feebox .s{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:rgba(255,200,61,.16);flex:none}
+.feebox .s svg{width:24px;height:24px}
+.feebox b{display:block;font-size:19px;letter-spacing:-.3px}
+.feebox span{display:block;color:#e2d3a6;font-size:12px}
+.star-i{display:inline-block;width:14px;height:14px;vertical-align:-2px}
+.btn.star .star-i path{fill:#3a2500}
+.btnrow{display:flex;gap:8px}
+.btnrow .btn{flex:1}
+.offer.old{opacity:.55}
+.oreason{display:flex;gap:8px;align-items:flex-start;margin-top:10px;padding:8px 10px;border-radius:10px;background:rgba(255,77,94,.08);color:#ffadb6;font-size:12.5px;line-height:1.35}
+.oreason svg{width:15px;height:15px;flex:none;margin-top:1px}
+.toast{position:fixed;z-index:80;left:50%;top:calc(10px + var(--safe-t));transform:translate3d(-50%,-16px,0);opacity:0;pointer-events:none;background:#26262b;border:1px solid var(--line2);color:#fff;padding:10px 15px;border-radius:12px;font-size:13px;font-weight:650;transition:transform .32s var(--spring),opacity .2s;box-shadow:0 10px 30px rgba(0,0,0,.5);max-width:90%;text-align:center;will-change:transform}
+.toast.show{opacity:1;transform:translate3d(-50%,0,0)}
+.toast.err{background:#5a1a22;border-color:rgba(255,120,135,.35)}
+.banner{margin:0 14px 10px;padding:9px 12px;border-radius:12px;background:rgba(255,179,64,.08);color:#dccfa6;font-size:12px;line-height:1.5}
+.banner b{color:#ffd88a}
+.spin{width:18px;height:18px;border-radius:50%;border:2.5px solid rgba(255,255,255,.3);border-top-color:#fff;animation:rot .7s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+
+/* Появление — только при смене экрана, только первые элементы, только opacity/transform */
+.content.enter>*:nth-child(-n+6),.content.enter .grid>.card:nth-child(-n+12),.content.enter .offer:nth-child(-n+6){animation:rise .32s var(--ease) both}
+.content.enter .grid>.card:nth-child(3n+2){animation-delay:25ms}.content.enter .grid>.card:nth-child(3n){animation-delay:50ms}
+@keyframes rise{from{opacity:0;transform:translate3d(0,8px,0)}to{opacity:1;transform:none}}
+.leaving{animation:leave .22s var(--ease) forwards!important;pointer-events:none}
+@keyframes leave{to{opacity:0;transform:scale(.96)}}
+.btn,.chip,.row,.seg button,.x,.cta,.sq,.favb,.addcard,.pick,.promo,.nb{-webkit-user-select:none;user-select:none}
+.chip:active,.seg button:active,.addcard:active{transform:scale(.96)}
+.btn.loading,.cta.loading{color:transparent!important;pointer-events:none}
+.btn.loading>*,.cta.loading>*{opacity:0}
+.btn.loading:after,.cta.loading:after{content:"";position:absolute;left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;border:2.5px solid rgba(255,255,255,.35);border-top-color:#fff;animation:rot .7s linear infinite}
+.btn.star.loading:after,.btn.okb.loading:after{border-color:rgba(0,0,0,.2);border-top-color:#2a1c00}
+.favb.pop svg,.sq.pop svg{animation:pop .35s var(--spring)}
+@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.3)}100%{transform:scale(1)}}
+.thumb img.ld,.big img.ld,.mini img.ld,.pic img.ld{opacity:0}
+.big img,.mini img,.pic img{transition:opacity .3s}
+/* Окно подтверждения */
+.modal{position:fixed;inset:0;z-index:70;display:grid;place-items:center;padding:20px;background:rgba(0,0,0,.62);opacity:0;pointer-events:none;transition:opacity .22s var(--ease)}
+.modal.show{opacity:1;pointer-events:auto}
+.mbox{width:min(340px,100%);border-radius:20px;padding:20px 16px 14px;background:var(--s2);border:1px solid var(--line2);box-shadow:0 24px 60px rgba(0,0,0,.6);transform:scale(.94);opacity:0;transition:transform .32s var(--spring),opacity .2s}
+.modal.show .mbox{transform:none;opacity:1}
+.mbox .mic{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;margin:0 auto 12px;background:var(--blue-t);color:#7db6ff}
+.mbox .mic svg{width:21px;height:21px}
+.mbox p{margin:0 0 16px;text-align:center;font-size:14.5px;line-height:1.5;white-space:pre-line;color:#e7e8ee}
+/* ===== Liquid glass v2: прозрачность + анимации, только transform/opacity ===== */
+:root{--g1:rgba(255,255,255,.055);--g2:rgba(255,255,255,.085);--g3:rgba(255,255,255,.12);--gl:rgba(255,255,255,.09);--hi:inset 0 1px 0 rgba(255,255,255,.07);
+  --spring2:cubic-bezier(.32,1.28,.5,1);--s1:rgba(255,255,255,.05);--s2:rgba(255,255,255,.07);--s3:rgba(255,255,255,.1);--s4:rgba(255,255,255,.15)}
+html,body{background:#05060a}
+.aurora{position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;background:radial-gradient(120% 80% at 50% -10%,#0d1a33 0%,#05060a 60%)}
+.aurora i{position:absolute;width:80vmax;height:80vmax;border-radius:50%;opacity:.55;will-change:transform;backface-visibility:hidden}
+.aurora i:nth-child(1){left:-30vmax;top:-30vmax;background:radial-gradient(closest-side,rgba(47,140,255,.55),rgba(47,140,255,0));animation:au1 22s ease-in-out infinite alternate}
+.aurora i:nth-child(2){right:-35vmax;top:10vmax;background:radial-gradient(closest-side,rgba(140,80,255,.42),rgba(140,80,255,0));animation:au2 26s ease-in-out infinite alternate}
+.aurora i:nth-child(3){left:-10vmax;bottom:-45vmax;background:radial-gradient(closest-side,rgba(0,200,255,.3),rgba(0,200,255,0));animation:au3 30s ease-in-out infinite alternate}
+@keyframes au1{to{transform:translate3d(18vmax,22vmax,0) scale(1.15)}}
+@keyframes au2{to{transform:translate3d(-20vmax,18vmax,0) scale(.9)}}
+@keyframes au3{to{transform:translate3d(14vmax,-20vmax,0) scale(1.2)}}
+.aurora.paused i{animation-play-state:paused}
+
+.glass,.card,.stats,.item,.offer,.list,.pcard,.empty,.addcard{background:var(--g1);border:1px solid var(--gl);box-shadow:var(--hi)}
+.addcard{border:1px dashed rgba(90,160,255,.5)}
+.me,.search,.sq,.chip,.seg{background:var(--g2)!important}
+.seg button.active{background:var(--g3);box-shadow:var(--hi)}
+.side,.quote,.attr,.orow,.note,.ptarget,.preview,.field,.pick,.thumb,.mini,.item .pic,.big{background:rgba(255,255,255,.06)!important}
+.chip.active{background:rgba(47,140,255,.22)!important;color:#9cc8ff;box-shadow:inset 0 0 0 1px rgba(47,140,255,.45)}
+
+/* стекло с размытием — только на 4 фиксированных панелях */
+.toolbar{background:rgba(5,6,10,.55);-webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%)}
+.dock{background:rgba(20,22,30,.55);-webkit-backdrop-filter:blur(22px) saturate(180%);backdrop-filter:blur(22px) saturate(180%);border:1px solid rgba(255,255,255,.12);box-shadow:0 14px 40px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.1);border-radius:26px}
+.sheet{background:rgba(18,20,28,.78);-webkit-backdrop-filter:blur(26px) saturate(170%);backdrop-filter:blur(26px) saturate(170%);border-color:rgba(255,255,255,.12);box-shadow:0 -10px 50px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.1);border-radius:24px 24px 0 0}
+.mbox{background:rgba(28,30,40,.82);-webkit-backdrop-filter:blur(24px) saturate(170%);backdrop-filter:blur(24px) saturate(170%);box-shadow:0 24px 60px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.1)}
+.toast{background:rgba(32,34,44,.8);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+.toast.err{background:rgba(110,24,36,.85)}
+.sback,.modal{background:rgba(0,0,0,.45)}
+
+/* бегущий индикатор вкладок */
+.dock{position:fixed}
+.dock .ind{position:absolute;left:0;top:5px;bottom:5px;border-radius:20px;background:linear-gradient(180deg,rgba(47,140,255,.3),rgba(47,140,255,.16));box-shadow:inset 0 0 0 1px rgba(90,165,255,.35),0 4px 16px rgba(47,140,255,.25);
+  transition:transform .5s var(--spring2),width .5s var(--spring2);will-change:transform;pointer-events:none;z-index:0}
+.dock .nb{z-index:1;background:none!important;border-radius:20px}
+.dock .nb.active{color:#8fc2ff}
+.dock .nb svg{transition:transform .45s var(--spring2)}
+.dock .nb.active svg{transform:translateY(-1px) scale(1.12)}
+.dock .dot.show{animation:dotin .45s var(--spring2)}
+@keyframes dotin{from{transform:scale(0)}}
+
+/* волна при нажатии */
+.btn,.cta,.nb,.chip,.row,.promo,.addcard,.plusb,.sq,.seg button,.me,.x{position:relative;overflow:hidden}
+.rip{position:absolute;border-radius:50%;pointer-events:none;background:rgba(255,255,255,.32);transform:scale(0);opacity:1;animation:rip .55s cubic-bezier(.2,.7,.3,1) forwards}
+@keyframes rip{to{transform:scale(1);opacity:0}}
+
+/* кнопки: глянцевый блик и мягкое свечение */
+.btn:not(.sec):not(.danger),.cta.p,.plusb,.logo{background-image:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,0) 55%)}
+.btn:not(.sec):not(.danger):not(.okb):not(.star){box-shadow:0 6px 20px rgba(47,140,255,.35),inset 0 1px 0 rgba(255,255,255,.25)}
+.btn.sec{background:var(--g3);box-shadow:var(--hi)}
+.cta.p{box-shadow:0 3px 10px rgba(47,140,255,.3),inset 0 1px 0 rgba(255,255,255,.22)}
+.cta.s{background:var(--g3)}
+.plusb{box-shadow:0 4px 14px rgba(47,140,255,.45)}
+.btn,.cta,.chip,.sq,.x,.plusb,.nb,.row,.addcard,.promo,.pick{transition:transform .32s var(--spring2),background .25s,color .25s,opacity .2s,border-color .2s}
+.btn:active,.cta:active{transform:scale(.95);transition-duration:.08s}
+
+/* логотип дышит */
+.logo{position:relative;box-shadow:0 4px 16px rgba(47,140,255,.4)}
+.logo:after{content:"";position:absolute;inset:-4px;border-radius:14px;box-shadow:0 0 18px 2px rgba(47,140,255,.6);opacity:0;animation:breathe 3.2s ease-in-out infinite}
+@keyframes breathe{50%{opacity:.8}}
+.logo svg{animation:spinlogo 6s var(--spring2) infinite}
+@keyframes spinlogo{0%,80%{transform:none}90%,100%{transform:rotate(180deg)}}
+
+/* промо: бегущий блик */
+.promo{position:relative;overflow:hidden;background:linear-gradient(100deg,rgba(47,140,255,.35),rgba(110,80,255,.18) 60%,rgba(255,255,255,.04));border:1px solid rgba(110,170,255,.3);box-shadow:var(--hi)}
+.promo:before{content:"";position:absolute;top:0;bottom:0;left:0;width:45%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.16),transparent);transform:translate3d(-120%,0,0) skewX(-18deg);animation:sweep 4.5s ease-in-out infinite;pointer-events:none}
+@keyframes sweep{0%,55%{transform:translate3d(-120%,0,0) skewX(-18deg)}100%{transform:translate3d(330%,0,0) skewX(-18deg)}}
+.promo .pi{animation:bob 3s ease-in-out infinite}
+@keyframes bob{50%{transform:translate3d(0,-2px,0) rotate(-6deg)}}
+
+/* карточки */
+.card{border-radius:16px;transition:transform .35s var(--spring2),box-shadow .3s}
+.card:active{transform:scale(.955);transition-duration:.1s}
+.thumb{border-radius:0}
+.thumb:after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,rgba(255,255,255,.22) 50%,transparent 65%);transform:translate3d(-100%,0,0);pointer-events:none}
+.content.enter .card .thumb:after{animation:shine 1s .25s var(--ease) both}
+.card:active .thumb:after{animation:shine .6s var(--ease)}
+@keyframes shine{to{transform:translate3d(100%,0,0)}}
+.thumb img{transition:opacity .4s,transform .6s var(--ease)}
+.thumb img.ld{transform:scale(1.06)}
+.favb{background:rgba(0,0,0,.35)}
+.favb.on{background:rgba(255,77,109,.2)}
+.favb.pop:after{content:"";position:absolute;inset:0;border-radius:50%;box-shadow:0 0 0 2px #ff4d6d;animation:ring .5s var(--ease) forwards}
+@keyframes ring{from{transform:scale(.6);opacity:1}to{transform:scale(1.9);opacity:0}}
+
+/* появление экранов: каскад */
+.content.enter>*:nth-child(-n+8),.content.enter .grid>.card:nth-child(-n+15),.content.enter .offer:nth-child(-n+6),.content.enter .item:nth-child(-n+8){animation:rise2 .55s var(--spring2) both}
+@keyframes rise2{from{opacity:0;transform:translate3d(0,16px,0) scale(.97)}to{opacity:1;transform:none}}
+.content.enter .grid>.card:nth-child(2){animation-delay:30ms}.content.enter .grid>.card:nth-child(3){animation-delay:60ms}
+.content.enter .grid>.card:nth-child(4){animation-delay:90ms}.content.enter .grid>.card:nth-child(5){animation-delay:120ms}.content.enter .grid>.card:nth-child(6){animation-delay:150ms}
+.content.enter .grid>.card:nth-child(7){animation-delay:180ms}.content.enter .grid>.card:nth-child(8){animation-delay:210ms}.content.enter .grid>.card:nth-child(9){animation-delay:240ms}
+.content.enter .grid>.card:nth-child(n+10){animation-delay:270ms}
+.content.enter .offer:nth-child(2),.content.enter .item:nth-child(2),.content.enter>*:nth-child(2){animation-delay:50ms}
+.content.enter .offer:nth-child(3),.content.enter .item:nth-child(3),.content.enter>*:nth-child(3){animation-delay:100ms}
+.content.enter .offer:nth-child(n+4),.content.enter .item:nth-child(n+4),.content.enter>*:nth-child(n+4){animation-delay:150ms}
+#heading{display:inline-block}
+.shead.swap #heading{animation:headin .45s var(--spring2)}
+@keyframes headin{from{opacity:0;transform:translate3d(-10px,0,0)}}
+.stats{animation:none}
+.stat b{display:inline-block}
+
+/* нижний лист: пружина + каскад содержимого */
+.sheet{transition:transform .55s var(--spring2)}
+.sheet:not(.show){transition:transform .3s var(--ease)}
+.sheet.opening #sbody>*{animation:rise2 .5s var(--spring2) both}
+.sheet.opening #sbody>*:nth-child(2){animation-delay:40ms}.sheet.opening #sbody>*:nth-child(3){animation-delay:80ms}
+.sheet.opening #sbody>*:nth-child(4){animation-delay:120ms}.sheet.opening #sbody>*:nth-child(n+5){animation-delay:160ms}
+.sheet.opening .big img{animation:zoomin .7s var(--spring2) both}
+@keyframes zoomin{from{transform:scale(.85);opacity:0}}
+.grab{background:rgba(255,255,255,.25)}
+.mbox{transition:transform .45s var(--spring2),opacity .2s}
+.modal:not(.show) .mbox{transform:scale(.9) translate3d(0,10px,0)}
+.toast{transition:transform .5s var(--spring2),opacity .25s}
+.pick.on{transform:scale(.96);box-shadow:0 0 0 1px var(--blue),0 6px 18px rgba(47,140,255,.3)}
+.pick .ck{transition:background .2s,border-color .2s,transform .35s var(--spring2)}
+.pick.on .ck{transform:scale(1.15)}
+.sk{background:linear-gradient(90deg,rgba(255,255,255,.05),rgba(255,255,255,.1),rgba(255,255,255,.05))}
+
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="aurora" id="aurora"><i></i><i></i><i></i></div>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h11l-3-3M17 17H6l3 3"/></svg></div>
+      <div><div>GiftXchange<span class="pill-demo" id="demoPill" hidden>демо</span></div><small>@GiftXchangebot</small></div>
+    </div>
+    <div class="tright"><button class="me" data-go="profile"><span id="meAvaWrap"></span><span id="meName">Профиль</span></button><button class="plusb" data-act="add" aria-label="Добавить NFT"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button></div>
+  </header>
+  <div id="banner"></div>
+  <section id="heroWrap"></section>
+  <div class="toolbar" id="toolbar">
+    <div class="searchrow">
+      <label class="search glass" id="searchBox">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="search" placeholder="Название, номер или владелец" autocomplete="off" enterkeyhint="search">
+        <button class="clear" id="clearSearch" aria-label="Очистить">×</button>
+      </label>
+      <button class="sq glass" id="sortBtn" aria-label="Сортировка"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M7 12h10M10 17h4"/></svg></button>
+    </div>
+    <div class="chips" id="chips"></div>
+  </div>
+  <div class="shead"><h2 id="heading">Маркет</h2><small id="counter"></small></div>
+  <main class="content" id="content"></main>
+</div>
+
+<nav class="dock" id="dock"></nav>
+<div class="sback" id="sback"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true"><div class="grabzone" id="grab"><div class="grab"></div></div><div id="sbody"></div></div>
+<div class="modal" id="modal"><div class="mbox"><div class="mic" id="mic"></div><p id="mtext"></p><div class="btnrow"><button class="btn sec" id="mcancel">Отмена</button><button class="btn" id="mok">OK</button></div></div></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   GiftXchange — мини-приложение @GiftXchangebot
+   • Внутри Telegram работает с сервером (server.js) по адресу API_BASE.
+   • Вне Telegram (или с ?demo в адресе) включается ДЕМО: та же логика
+     из core.js, но данные живут только в памяти этой вкладки.
+   ===================================================================== */
+const CONFIG = { API_BASE: '' }; // '' — тот же домен, где открыт server.js
+const C = window.GXCore;
+const tg = window.Telegram && window.Telegram.WebApp;
+const inTG = !!(tg && tg.initData);
+const DEMO = !inTG || /[?&]demo\b/.test(location.search);
+
+if (tg) { try { tg.ready(); tg.expand(); tg.setHeaderColor && tg.setHeaderColor('#05060a'); tg.setBackgroundColor && tg.setBackgroundColor('#05060a'); tg.setBottomBarColor && tg.setBottomBarColor('#05060a'); tg.disableVerticalSwipes && tg.disableVerticalSwipes(); } catch (e) {} }
+const haptic = (t = 'light') => { try { tg && tg.HapticFeedback && tg.HapticFeedback.impactOccurred(t) } catch (e) {} };
+const notifyH = (t = 'success') => { try { tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred(t) } catch (e) {} };
+
+/* ---------- Утилиты ---------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtNum = n => '#' + Number(n).toLocaleString('ru-RU');
+function plural(n, a, b, c) { n = Math.abs(n) % 100; const m = n % 10; if (n > 10 && n < 20) return c; if (m > 1 && m < 5) return b; if (m === 1) return a; return c; }
+const giftsWord = n => `${n} ${plural(n, 'подарок', 'подарка', 'подарков')}`;
+function ago(ts) { const m = Math.round((Date.now() - ts) / 60000); if (m < 1) return 'только что'; if (m < 60) return m + ' мин назад'; const h = Math.round(m / 60); if (h < 24) return h + ' ч назад'; const d = Math.round(h / 24); return d + ' ' + plural(d, 'день', 'дня', 'дней') + ' назад'; }
+const initials = n => (n || '?').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+const AV = ['#3d9bff,#7c5cff', '#ff8a5b,#ff5c8a', '#3ccf91,#2fa8ff', '#ffb547,#ff6b6b', '#8b5cf6,#ec4899', '#14b8a6,#6366f1'];
+function ava(u, cls = '') {
+  if (u && u.photo) return `<div class="ava ${cls}"><img src="${esc(u.photo)}" alt=""></div>`;
+  const i = String((u && (u.id || u.name)) || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0) % AV.length;
+  return `<div class="ava ${cls}" style="background:linear-gradient(140deg,${AV[i]})">${esc(initials(u && u.name))}</div>`;
+}
+const uLabel = u => u ? (u.username ? '@' + u.username : (u.name || 'Пользователь')) : '—';
+let toastT;
+function toast(msg, isErr) { const t = $('toast'); t.textContent = msg; t.classList.toggle('err', !!isErr); t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), isErr ? 3600 : 2400); }
+function copyText(t) {
+  try { if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(t).then(() => true, () => legacyCopy(t)); } catch (e) {}
+  return Promise.resolve(legacyCopy(t));
+}
+function legacyCopy(t) { try { const a = document.createElement('textarea'); a.value = t; a.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(a); a.select(); const ok = document.execCommand('copy'); a.remove(); return ok; } catch (e) { return false; } }
+function openLink(url) {
+  try {
+    if (inTG && /^https:\/\/t\.me\//.test(url) && tg.openTelegramLink) return tg.openTelegramLink(url);
+    if (inTG && tg.openLink) return tg.openLink(url);
+  } catch (e) {}
+  let w = null; try { w = window.open(url, '_blank'); if (w) w.opener = null; } catch (e) {}
+  if (!w) copyText(url).then(ok => toast(ok ? 'Ссылка скопирована: ' + url.replace('https://', '') : url));
+}
+
+/* ---------- Иконки ---------- */
+const I = {
+  grid: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="2.2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2.2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2.2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2.2"/></svg>',
+  gift: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="8" width="17" height="12.5" rx="2.2"/><path d="M3.5 12h17M12 8v12.5M12 8S10.5 3.5 8 4.2 8.5 8 12 8Zm0 0s1.5-4.5 4-3.8S15.5 8 12 8Z"/></svg>',
+  swap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h12l-3.5-3.5M17 17H5l3.5 3.5"/></svg>',
+  user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20.5c1.2-3.6 4-5.5 7.5-5.5s6.3 1.9 7.5 5.5"/></svg>',
+  shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M12 3.5 5 6.5v5c0 4.3 3 7.7 7 9 4-1.3 7-4.7 7-9v-5l-7-3Z"/><path d="m9 12 2 2 4-4" stroke-linecap="round"/></svg>',
+  heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20s-7.5-4.4-7.5-10A4.3 4.3 0 0 1 12 7.4 4.3 4.3 0 0 1 19.5 10c0 5.6-7.5 10-7.5 10Z"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>',
+  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  ext: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+  send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 3 10 14M21 3l-7 18-4-7-7-4 18-7Z"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  chev: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>',
+  info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/></svg>',
+  out: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"/></svg>',
+  link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
+  star: '<svg viewBox="0 0 24 24"><defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe27a"/><stop offset="1" stop-color="#ffaa1a"/></linearGradient></defs><path fill="url(#sg)" d="M12 2.6l2.85 5.95 6.55.88-4.8 4.55 1.2 6.5L12 17.35 6.2 20.48l1.2-6.5L2.6 9.43l6.55-.88z"/></svg>'
+};
+const starI = `<span class="star-i">${I.star}</span>`;
+
+/* ---------- Состояние ---------- */
+const S = {
+  view: 'market', filter: 'all', sort: 'new', offerTab: 'in', adminTab: 'deposits',
+  data: null, loading: true, favs: new Set(), enter: true, marketLimit: 24
+};
+
+/* ---------- Хранилище избранного: Telegram CloudStorage ---------- */
+const cloud = () => (inTG && tg.CloudStorage && tg.isVersionAtLeast && tg.isVersionAtLeast('6.9')) ? tg.CloudStorage : null;
+function saveFavs() { try { cloud() && cloud().setItem('favs', JSON.stringify([...S.favs].slice(0, 200))) } catch (e) {} }
+function loadFavs() { return new Promise(r => { const c = cloud(); if (!c) return r(); try { c.getItem('favs', (e, v) => { try { if (!e && v) S.favs = new Set(JSON.parse(v)) } catch (x) {} r() }) } catch (e) { r() } }) }
+
+/* =====================================================================
+   Backend: настоящий сервер или демо на core.js
+   ===================================================================== */
+const Real = {
+  async req(path, opts = {}) {
+    const r = await fetch(CONFIG.API_BASE + path, { ...opts, headers: { 'Content-Type': 'application/json', 'X-Telegram-Init-Data': tg.initData, ...(opts.headers || {}) } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'Ошибка сервера (' + r.status + ')');
+    return j;
+  },
+  state() { return this.req('/api/state') },
+  action(name, payload) { return this.req('/api/action', { method: 'POST', body: JSON.stringify({ name, payload }) }) },
+  preview(link) { return this.req('/api/preview?link=' + encodeURIComponent(link)) }
+};
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const Demo = (() => {
+  const db = C.newDb();
+  const ME = { id: '8819265814', first_name: 'Вы', username: 'you' };
+  const ctx = { uid: '8819265814', isAdmin: true, paymentMode: 'invoice' };
+  const users = [
+    { id: '11', first_name: 'Артём', username: 'artem_k' }, { id: '12', first_name: 'Mila', username: 'mila_gifts' },
+    { id: '13', first_name: 'Дмитрий', username: 'dmtr' }, { id: '14', first_name: 'Alina', username: 'alina_s' },
+    { id: '15', first_name: 'Тимур', username: 'timur07' }, { id: '16', first_name: 'Kate', username: 'katecollects' }
+  ];
+  C.upsertUser(db, ME); users.forEach(u => C.upsertUser(db, u));
+  const admin = { ...ctx, isAdmin: true };
+  const reg = (slug, uid, h, meta) => { const g = C.actions.adminRegister(db, admin, { link: 'https://t.me/nft/' + slug, owner: uid, meta }); g.addedAt = Date.now() - h * 3600e3; return g; };
+  const m = (model, mr, bd, br, sym, sr) => ({ model: { name: model, rarity: mr }, backdrop: { name: bd, rarity: br }, symbol: { name: sym, rarity: sr } });
+  const pepe = reg('PlushPepe-1', '11', 2, { name: 'Plush Pepe', ...m('Pumpkin', '3', 'Onyx Black', '2', 'Illuminati', '0.5') });
+  const cap = reg('DurovsCap-100', '12', 5, { name: "Durov's Cap" });
+  reg('SwissWatch-10', '13', 9); const ring = reg('SignetRing-321', '14', 1);
+  reg('PreciousPeach-77', '15', 30); reg('KissedFrog-1500', '16', 50);
+  const cat = reg('ScaredCat-42', '11', 70); const shard = reg('AstralShard-250', '12', 3);
+  reg('IonGem-1200', '13', 90); reg('MagicPotion-640', '14', 100); reg('NekoHelmet-55', '15', 6); reg('HeartLocket-12', '16', 12);
+  const lol = reg('LolPop-5000', '8819265814', 20), cake = reg('HomemadeCake-200', '8819265814', 40), rose = reg('EternalRose-2024', '8819265814', 60);
+  reg('LunarSnake-9999', '8819265814', 80); const bag = reg('LootBag-900', '8819265814', 110);
+  const as = (uid, f) => f({ ...ctx, uid, isAdmin: false });
+  as('12', c => C.actions.createOffer(db, c, { give: [shard.id], get: [lol.id], comment: 'Давай меняться, могу быстро' }));
+  as('14', c => C.actions.createOffer(db, c, { give: [ring.id], get: [rose.id, bag.id] }));
+  C.actions.createOffer(db, ctx, { give: [cake.id], get: [cat.id] });
+  // заявки для админки
+  as('15', c => C.actions.createDeposit(db, c, { link: 'https://t.me/nft/ToyBear-8000' }));
+  as('16', c => C.actions.createDeposit(db, c, { link: 'https://t.me/nft/BerryBox-4100' }));
+  const w1 = as('13', c => C.actions.requestWithdrawal(db, c, { giftId: Object.values(db.gifts).find(g => g.slug === 'IonGem-1200').id }));
+  C.actions.markWithdrawalPaid(db, null, { id: w1.id, amount: 50 });
+  const w2 = as('16', c => C.actions.requestWithdrawal(db, c, { giftId: Object.values(db.gifts).find(g => g.slug === 'HeartLocket-12').id }));
+  as('16', c => C.actions.claimManualPayment(db, c, { id: w2.id }));
+  Object.values(db.offers).forEach((o, i) => o.createdAt = Date.now() - [25, 180, 1500][i] * 60e3);
+  Object.values(db.deposits).forEach((d, i) => d.createdAt = Date.now() - (i + 1) * 40 * 60e3);
+
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  return {
+    ctx,
+    async state() { await wait(220); return C.view(db, ctx) },
+    async action(name, payload) {
+      await wait(120);
+      if (name === 'payWithdrawal') return { demoInvoice: payload.id, state: C.view(db, ctx) };
+      const out = C.actions[name](db, ctx, payload || {});
+      const extra = name === 'requestWithdrawal' && ctx.paymentMode === 'invoice' ? { demoInvoice: out.id } : {};
+      return { ok: true, ...extra, state: C.view(db, ctx) };
+    },
+    async preview(link) { await wait(200); const p = C.parseLink(link); if (!p) throw new Error('Неверная ссылка'); return { ...p, meta: null } },
+    demoPay(id) { C.actions.markWithdrawalPaid(db, null, { id, amount: 50 }); return C.view(db, ctx) }
+  };
+})();
+const B = DEMO ? Demo : Real;
+
+// Действие с мгновенным откликом: кнопка сразу показывает загрузку,
+// карточка (если передана) сразу плавно исчезает; при ошибке всё возвращается.
+const inflight = new Set();
+async function act(name, payload, okMsg, opt = {}) {
+  const key = name + ':' + JSON.stringify(payload || {});
+  if (inflight.has(key)) return null;
+  inflight.add(key);
+  const { btn, row } = opt;
+  if (btn) btn.classList.add('loading');
+  if (row) row.classList.add('leaving');
+  haptic('light');
+  try {
+    const [r] = await Promise.all([B.action(name, payload), row ? sleep(240) : null]);
+    if (r.state) S.data = r.state;
+    if (okMsg) { notifyH('success'); toast(okMsg); }
+    return r;
+  } catch (e) { if (row) row.classList.remove('leaving'); notifyH('error'); toast(e.message, true); return null; }
+  finally { inflight.delete(key); if (btn) btn.classList.remove('loading'); render(); }
+}
+
+/* =====================================================================
+   Рендер
+   ===================================================================== */
+const TITLES = { market: 'Маркет', mine: 'Мои NFT', offers: 'Обмены', profile: 'Профиль', favorites: 'Избранное', admin: 'Админ-панель' };
+const D = () => S.data || { market: [], mine: [], offers: [], deposits: [], withdrawals: [], stats: {}, me: {}, fee: 50 };
+
+window.__seen = new Set();
+function img(g) {
+  return g && g.image
+    ? `<img class="${__seen.has(g.image) ? '' : 'ld'}" src="${esc(g.image)}" alt="${esc(g.name)}" loading="lazy" decoding="async" onload="this.classList.remove('ld');__seen.add(this.getAttribute('src'))" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'fallback',textContent:(this.alt||'🎁').slice(0,2).toUpperCase()}))">`
+    : '<div class="fallback">🎁</div>';
+}
+const allGifts = () => D().market.concat(D().mine);
+const byId = id => allGifts().find(g => g.id === id);
+
+function card(g, i) {
+  const mine = g.owner && g.owner.id === D().me.id;
+  const fav = S.favs.has(g.id);
+  const st = g.status === 'withdrawing' ? ['out', 'Вывод'] : g.locked ? ['busy', mine ? 'В заявке' : 'В сделке'] : mine ? ['mine', 'Мой'] : ['ok', 'Доступен'];
+  const canSwap = !mine && !g.locked && g.status === 'available';
+  return `<div class="card" data-open="${esc(g.id)}" role="button" tabindex="0">
+    <div class="thumb">${img(g)}<span class="tag st ${st[0]}">${st[1]}</span>
+      <button class="favb ${fav ? 'on' : ''}" data-fav="${esc(g.id)}" aria-label="В избранное">${I.heart}</button></div>
+    <div class="info"><div class="t">${esc(g.name)}</div>
+      <div class="o"><span>${fmtNum(g.number)}</span><span>·</span><span>${esc(mine ? 'вы' : uLabel(g.owner))}</span></div>
+      ${canSwap ? `<button class="cta p" data-offer="${esc(g.id)}">${I.swap}Обменять</button>` : `<button class="cta s" data-open="${esc(g.id)}">${mine && g.status === 'available' && !g.locked ? 'Управлять' : 'Подробнее'}</button>`}
+    </div></div>`;
+}
+const skeleton = () => `<div class="grid">${Array.from({ length: 9 }).map(() => `<div class="card"><div class="thumb sk" style="border-radius:0"></div><div class="info"><div class="sk" style="height:12px;width:75%"></div><div class="sk" style="height:10px;width:45%;margin-top:6px"></div><div class="sk" style="height:28px;margin-top:8px;border-radius:9px"></div></div></div>`).join('')}</div>`;
+const empty = (icon, t, p, btn) => `<section class="empty glass"><div class="ic">${icon}</div><h3>${t}</h3><p>${p}</p>${btn || ''}</section>`;
+
+function filtered(list) {
+  const q = $('search').value.trim().toLowerCase().replace(/^#/, '');
+  let r = list.slice();
+  if (q) r = r.filter(g => [g.name, g.number, g.owner && g.owner.name, g.owner && g.owner.username, g.model && g.model.name, g.backdrop && g.backdrop.name].some(v => String(v ?? '').toLowerCase().includes(q)));
+  if (S.filter === 'available') r = r.filter(g => g.status === 'available' && !g.locked);
+  if (S.filter === 'new') r = r.filter(g => Date.now() - (g.addedAt || 0) < 24 * 3600e3);
+  if (S.filter === 'fav') r = r.filter(g => S.favs.has(g.id));
+  const f = { new: (a, b) => b.addedAt - a.addedAt, num: (a, b) => a.number - b.number, numd: (a, b) => b.number - a.number, name: (a, b) => a.name.localeCompare(b.name) }[S.sort];
+  return r.sort(f);
+}
+
+function renderDock() {
+  const d = D(), pin = d.offers.filter(o => o.incoming && o.status === 'pending').length;
+  const adm = d.admin ? d.admin.deposits.length + d.admin.withdrawals.length : 0;
+  const items = [['market', 'Маркет', I.grid, 0], ['mine', 'Мои', I.gift, 0], ['offers', 'Обмены', I.swap, pin], ['profile', 'Профиль', I.user, 0]];
+  if (d.isAdmin) items.push(['admin', 'Админ', I.shield, adm]);
+  const active = S.view === 'favorites' ? 'profile' : S.view;
+  const dock = $('dock'), sig = items.map(i => i[0]).join();
+  if (dock.dataset.sig !== sig) { dock.innerHTML = '<span class="ind" id="ind"></span>' + items.map(([k, l, ic]) => `<button class="nb" data-go="${k}" aria-label="${l}">${ic}<span class="lbl">${l}</span><span class="dot"></span></button>`).join(''); dock.dataset.sig = sig; }
+  items.forEach(([k, , , n]) => { const b = dock.querySelector(`[data-go="${k}"]`); b.classList.toggle('active', active === k); const dt = b.querySelector('.dot'); dt.textContent = n; dt.classList.toggle('show', !!n); });
+  moveInd(dock.querySelector(`[data-go="${active}"]`));
+}
+
+function moveInd(b) {
+  const ind = $('ind'); if (!ind || !b) return;
+  const x = b.offsetLeft, w = b.offsetWidth; if (ind._x === x && ind._w === w) return;
+  if (ind._x === undefined) { ind.style.transition = 'none'; requestAnimationFrame(() => requestAnimationFrame(() => ind.style.transition = '')); }
+  ind._x = x; ind._w = w; ind.style.width = w + 'px'; ind.style.transform = `translate3d(${x}px,0,0)`;
+}
+addEventListener('resize', () => { const i = $('ind'); if (i) { i._x = undefined; renderDock(); } });
+// Волна от точки касания
+document.addEventListener('pointerdown', e => {
+  const el = e.target.closest('.btn,.cta,.nb,.chip,.row,.promo,.addcard,.plusb,.sq,.seg button,.me,.x'); if (!el || el.disabled) return;
+  const r = el.getBoundingClientRect(), d = Math.max(r.width, r.height) * 2.2, s = document.createElement('span');
+  s.className = 'rip'; s.style.cssText = `width:${d}px;height:${d}px;left:${e.clientX - r.left - d / 2}px;top:${e.clientY - r.top - d / 2}px`;
+  el.appendChild(s); s.addEventListener('animationend', () => s.remove(), { once: true });
+}, { passive: true });
+// Плавный счётчик чисел
+function countUp(root) {
+  root.querySelectorAll('.stat b').forEach(b => {
+    const to = +b.textContent || 0, from = +(b._v || 0); b._v = to; if (from === to) return;
+    const t0 = performance.now(), dur = 900;
+    const step = t => { const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3); b.textContent = Math.round(from + (to - from) * e); if (k < 1) requestAnimationFrame(step); };
+    b.textContent = from; requestAnimationFrame(step);
+  });
+}
+// Фон замирает, когда приложение в фоне — экономия батареи
+document.addEventListener('visibilitychange', () => $('aurora').classList.toggle('paused', document.hidden));
+function setHTML(el, h) { if (el._h !== h) { el.innerHTML = h; el._h = h; } }
+// Точечное обновление: одинаковые элементы остаются на месте (картинки не пересоздаются),
+// меняются только изменившиеся карточки. Так нет лишней работы и подвисаний.
+const tpl = document.createElement('template');
+function morph(el, h) {
+  if (el._h === h) return; el._h = h;
+  tpl.innerHTML = h; patchKids(el, tpl.content);
+}
+function patchKids(oldP, newP) {
+  const pool = new Map();
+  for (const c of [...oldP.children]) { const k = c.outerHTML; (pool.get(k) || pool.set(k, []).get(k)).push(c); }
+  const oldList = [...oldP.children], next = [];
+  [...newP.children].forEach((n, i) => {
+    const same = pool.get(n.outerHTML);
+    if (same && same.length) { next.push(same.shift()); return; }
+    const o = oldList[i];
+    if (o && !next.includes(o) && o.tagName === n.tagName && o.className === n.className && (o.classList.contains('grid') || o.classList.contains('list'))) { patchKids(o, n); next.push(o); return; }
+    next.push(n);
+  });
+  // удаляем лишнее и расставляем в нужном порядке с минимумом перемещений
+  const keep = new Set(next);
+  for (const c of [...oldP.children]) if (!keep.has(c)) c.remove();
+  next.forEach((n, i) => { const cur = oldP.children[i]; if (cur !== n) oldP.insertBefore(n, cur || null); });
+}
+function renderHero() {
+  const d = D();
+  if (S.view !== 'market') { setHTML($('heroWrap'), ''); return; }
+  setHTML($('heroWrap'), `
+    <button class="promo" data-act="how"><span class="pi">${I.swap}</span><div><b>Обмен NFT-подарками</b><span>Подарки хранятся у @${esc(d.relayer || C.RELAYER)} до конца сделки</span></div><span class="go">${I.chev}</span></button>
+    <div class="stats">
+      <div class="stat"><b>${d.stats.gifts || 0}</b><span>подарков</span></div>
+      <div class="stat"><b>${d.stats.swaps || 0}</b><span>обменов</span></div>
+      <div class="stat"><b>${d.stats.users || 0}</b><span>участников</span></div>
+    </div>`);
+  countUp($('heroWrap'));
+}
+
+function renderChips(base) {
+  const c = { all: base.length, available: base.filter(g => g.status === 'available' && !g.locked).length, new: base.filter(g => Date.now() - g.addedAt < 24 * 3600e3).length, fav: base.filter(g => S.favs.has(g.id)).length };
+  setHTML($('chips'), [['all', 'Все'], ['available', 'Можно обменять'], ['new', 'Новые за 24 ч'], ['fav', 'Избранное']]
+    .map(([k, l]) => `<button class="chip ${S.filter === k ? 'active' : ''}" data-filter="${k}">${l}<span class="n">${c[k]}</span></button>`).join(''));
+}
+
+const DEP_ST = { pending: 'На проверке', approved: 'Зачислен', rejected: 'Отклонён', cancelled: 'Отменён' };
+const W_ST = { awaiting_payment: 'Ждёт оплаты', payment_claimed: 'Проверяем оплату', paid: 'Оплачено · отправляем', sent: 'Отправлен', rejected: 'Отклонён', cancelled: 'Отменён' };
+const O_ST = { pending: 'Ожидает', accepted: 'Принят', declined: 'Отклонён', cancelled: 'Отменён' };
+
+function render() {
+  const c = $('content');
+  const html = renderView();
+  if (html !== undefined) { if (S.enter || !c.firstElementChild) setHTML(c, html); else morph(c, html); c._h = html; }
+  if (S.enter && !S.loading) { c.classList.remove('enter'); void c.offsetWidth; c.classList.add('enter'); S.enter = false; clearTimeout(render._t); render._t = setTimeout(() => c.classList.remove('enter'), 900); }
+}
+function renderView() {
+  const v = S.view, d = D();
+  renderDock(); renderHero();
+  if ($('heading').textContent !== TITLES[v]) { $('heading').textContent = TITLES[v]; const sh = $('heading').parentNode; sh.classList.remove('swap'); void sh.offsetWidth; sh.classList.add('swap'); }
+  $('demoPill').hidden = !DEMO;
+  $('toolbar').style.display = v === 'market' ? '' : 'none';
+  $('searchBox').classList.toggle('has', !!$('search').value);
+    if (S.loading) { $('counter').textContent = ''; return skeleton(); }
+
+  if (v === 'market') {
+    renderChips(d.market);
+    const list = filtered(d.market);
+    $('counter').textContent = giftsWord(list.length);
+    return !d.market.length
+      ? empty(I.gift, 'В маркете пока пусто', `Отправьте подарок на @${esc(d.relayer)} и зарегистрируйте его — он появится здесь первым.`, `<button class="btn" data-act="add">${I.plus}Добавить NFT</button>`)
+      : !list.length ? empty(I.search, 'Ничего не найдено', 'Измените запрос или сбросьте фильтры.', '<button class="btn sec" data-act="reset">Сбросить</button>')
+      : `<div class="grid">${list.slice(0,S.marketLimit).map(card).join('')}</div>`
+      + (list.length > S.marketLimit ? `<button class="btn sec" data-act="more" style="margin:16px auto;display:flex">Показать ещё ${Math.min(24, list.length - S.marketLimit)}</button>` : '');
+    return;
+  }
+
+  if (v === 'mine') {
+    $('counter').textContent = giftsWord(d.mine.length);
+    const deps = d.deposits.filter(x => x.status === 'pending' || Date.now() - x.createdAt < 3 * 864e5);
+    const ws = d.withdrawals.filter(w => !['sent', 'rejected', 'cancelled'].includes(w.status) || Date.now() - w.createdAt < 3 * 864e5);
+    let h = `<button class="addcard" data-act="add"><span class="ic">${I.plus}</span><div><b>Добавить NFT</b><span>Отправьте подарок на @${esc(d.relayer)} и вставьте ссылку</span></div><span class="go">${I.chev}</span></button>`;
+    if (deps.length) h += `<div class="sub"><span>Зачисление</span><span>${deps.filter(x => x.status === 'pending').length} на проверке</span></div>` + deps.map(depItem).join('');
+    if (ws.length) h += `<div class="sub"><span>Вывод</span><span>${ws.filter(w => !['sent', 'rejected', 'cancelled'].includes(w.status)).length} активных</span></div>` + ws.map(wItem).join('');
+    h += `<div class="sub"><span>Мои подарки</span><span>${d.mine.length}</span></div>`;
+    h += d.mine.length ? `<div class="grid">${d.mine.map(card).join('')}</div>` : empty(I.gift, 'Подарков пока нет', 'После проверки администратором подарок появится здесь, и его можно будет обменять или вывести.');
+    return h;
+    return;
+  }
+
+  if (v === 'offers') {
+    const inc = d.offers.filter(o => o.incoming), out = d.offers.filter(o => !o.incoming), list = S.offerTab === 'in' ? inc : out;
+    const act = list.filter(o => o.status === 'pending').length;
+    $('counter').textContent = `${act} ${plural(act, 'активная', 'активные', 'активных')}`;
+    return `<div class="seg glass"><button class="${S.offerTab === 'in' ? 'active' : ''}" data-otab="in">Входящие · ${inc.filter(o => o.status === 'pending').length}</button><button class="${S.offerTab === 'out' ? 'active' : ''}" data-otab="out">Исходящие · ${out.filter(o => o.status === 'pending').length}</button></div>`
+      + offerLists(list) + (list.length ? '' : empty(I.swap, S.offerTab === 'in' ? 'Входящих заявок нет' : 'Вы ещё не предлагали обмен', S.offerTab === 'in' ? 'Когда кто-то предложит обмен на ваш подарок, заявка появится здесь.' : 'Выберите подарок в маркете и нажмите «Обменять».', S.offerTab === 'out' ? '<button class="btn" data-go="market">В маркет</button>' : ''));
+    return;
+  }
+
+  if (v === 'favorites') {
+    const list = allGifts().filter(g => S.favs.has(g.id));
+    $('counter').textContent = giftsWord(list.length);
+    return list.length ? `<div class="grid">${list.map(card).join('')}</div>` : empty(I.heart, 'Избранное пусто', 'Нажмите на сердечко на карточке, чтобы сохранить подарок.', '<button class="btn sec" data-go="market">В маркет</button>');
+    return;
+  }
+
+  if (v === 'profile') {
+    $('counter').textContent = '';
+    const done = d.offers.filter(o => o.status === 'accepted').length;
+    return `
+      <div class="pcard glass">${ava(d.me)}<div style="min-width:0"><h3>${esc(d.me.name)}${d.isAdmin ? `<span class="adm">админ</span>` : ''}</h3><p>${d.me.username ? '@' + esc(d.me.username) : 'Telegram ID ' + esc(d.me.id)}</p></div></div>
+      <div class="list glass">
+        <button class="row" data-go="mine"><span class="ri">${I.gift}</span><span class="rt">Мои NFT</span><span class="rv">${d.mine.length}</span></button>
+        <button class="row" data-go="favorites"><span class="ri">${I.heart}</span><span class="rt">Избранное</span><span class="rv">${S.favs.size}</span></button>
+        <button class="row" data-go="offers"><span class="ri">${I.swap}</span><span class="rt">Завершённые обмены</span><span class="rv">${done}</span></button>
+        <button class="row" data-act="history"><span class="ri">${I.out}</span><span class="rt">Выводы</span><span class="rv">${d.withdrawals.length}</span></button>
+      </div>
+      <div class="list glass">
+        <button class="row" data-act="add"><span class="ri">${I.plus.replace('#fff', 'currentColor')}</span><span class="rt">Добавить NFT<small>через @${esc(d.relayer)}</small></span><span class="rv">${I.chev}</span></button>
+        <button class="row" data-act="how"><span class="ri">${I.info}</span><span class="rt">Как это работает</span><span class="rv">${I.chev}</span></button>
+        <button class="row" data-link="https://t.me/${esc(d.relayer)}"><span class="ri">${I.send}</span><span class="rt">Поддержка<small>@${esc(d.relayer)}</small></span><span class="rv">${I.chev}</span></button>
+        ${d.isAdmin ? `<button class="row" data-go="admin"><span class="ri">${I.shield}</span><span class="rt">Админ-панель</span><span class="rv">${I.chev}</span></button>` : ''}
+        ${DEMO ? `<button class="row" data-act="demoMode"><span class="ri">${starI}</span><span class="rt">Способ оплаты (демо)<small>${Demo.ctx.paymentMode === 'invoice' ? 'Счёт Telegram Stars' : 'Вручную на @' + esc(d.relayer)}</small></span><span class="rv">сменить</span></button>` : ''}
+      </div>`;
+    return;
+  }
+
+  if (v === 'admin') {
+    if (!d.isAdmin) { return empty(I.shield, 'Нет доступа', 'Раздел доступен только аккаунту администратора.'); return; }
+    const a = d.admin;
+    $('counter').textContent = '';
+    const tabs = [['deposits', 'Зачисление', a.deposits.length], ['withdrawals', 'Выводы', a.withdrawals.length], ['register', 'Вручную', 0]];
+    let h = `<div class="seg glass">${tabs.map(([k, l, n]) => `<button class="${S.adminTab === k ? 'active' : ''}" data-atab="${k}">${l}${n ? ' · ' + n : ''}</button>`).join('')}</div>`;
+    if (S.adminTab === 'deposits') {
+      h += `<div class="note glass">${I.info}<div>Откройте чат с отправителем в аккаунте <b>@${esc(d.relayer)}</b> и проверьте, что подарок пришёл <b>именно от этого пользователя</b>. Только после этого нажимайте «Зачислить».</div></div>`;
+      h += a.deposits.length ? a.deposits.map(adminDep).join('') : empty(I.check.replace('#fff', 'currentColor'), 'Новых заявок нет', 'Когда пользователь отправит подарок и вставит ссылку, заявка появится здесь.');
+    } else if (S.adminTab === 'withdrawals') {
+      h += `<div class="note glass">${I.info}<div>Отправьте подарок пользователю из аккаунта <b>@${esc(d.relayer)}</b>, затем нажмите «Отправил». При отклонении оплаченного счёта звёзды вернутся автоматически.</div></div>`;
+      h += a.withdrawals.length ? a.withdrawals.map(adminW).join('') : empty(I.out, 'Очередь пуста', 'Оплаченные заявки на вывод появятся здесь.');
+      if (a.recent && a.recent.length) h += `<div class="sub"><span>Недавние</span></div>` + a.recent.map(wItem).join('');
+    } else {
+      h += `<div class="glass" style="border-radius:22px;padding:14px">
+        <label class="flabel">Ссылка на полученный подарок</label>
+        <input class="field" id="regLink" placeholder="https://t.me/nft/PlushPepe-1" autocomplete="off">
+        <div id="regPreview"></div>
+        <label class="flabel">Владелец — @username или Telegram ID</label>
+        <input class="field" id="regOwner" placeholder="@username" autocomplete="off">
+        <div class="note warn" style="margin-bottom:12px">${I.info}<div>Пользователь должен хотя бы раз открыть @${esc(d.bot)}, иначе его не получится найти.</div></div>
+        <button class="btn block" id="regBtn">${I.check}Зарегистрировать NFT</button></div>`;
+    }
+    return h;
+  }
+}
+
+function depItem(x) {
+  return `<div class="item glass"><div class="pic">${img(x)}</div><div class="tx"><b>${esc(x.name)} ${fmtNum(x.number)}</b><small>${x.status === 'rejected' && x.reason ? esc(x.reason) : ago(x.createdAt)}</small></div>
+    ${x.status === 'pending' ? `<button class="x side-btn" data-dcancel="${esc(x.id)}" aria-label="Отменить">${I.x}</button>` : ''}<span class="badge ${x.status}">${DEP_ST[x.status]}</span></div>`;
+}
+function wItem(w) {
+  const g = w.gift || {};
+  const btn = w.status === 'awaiting_payment' ? `<button class="btn star sm side-btn" data-wpay="${esc(w.id)}">${w.fee} ${starI}</button>` : `<span class="badge ${w.status}">${W_ST[w.status]}</span>`;
+  return `<div class="item glass" ${w.status === 'awaiting_payment' ? `data-wopen="${esc(w.id)}"` : ''}><div class="pic">${img(g)}</div><div class="tx"><b>${esc(g.name || 'Подарок')} ${g.number ? fmtNum(g.number) : ''}</b><small>${S.view === 'admin' ? esc(uLabel(w.user)) + ' · ' : ''}${w.status === 'awaiting_payment' ? 'Комиссия не оплачена' : ago(w.createdAt)}</small></div>${btn}</div>`;
+}
+function adminDep(x) {
+  const meta = x.meta;
+  return `<div class="offer glass"><div class="otop"><div class="who">${ava(x.user)}<span>${esc(uLabel(x.user))}</span></div><span class="otime">${ago(x.createdAt)}</span></div>
+    <div class="item" style="padding:0;margin:0 0 10px;background:none;border:0;animation:none"><div class="pic">${img(x)}</div><div class="tx"><b>${esc(x.name)} ${fmtNum(x.number)}</b><small>${meta && meta.owner ? 'Сейчас в Telegram у: ' + esc(meta.owner) : 'Данные Telegram не получены'}</small></div><button class="x" data-link="${esc(x.link)}" aria-label="Открыть">${I.ext}</button></div>
+    <div class="oact" style="margin-top:0">${x.user.username ? `<button class="btn sec" data-link="https://t.me/${esc(x.user.username)}">Чат</button>` : ''}<button class="btn danger" data-dreject="${esc(x.id)}">Отклонить</button><button class="btn okb" data-dapprove="${esc(x.id)}">Зачислить</button></div></div>`;
+}
+function adminW(w) {
+  const g = w.gift || {};
+  const claimed = w.status === 'payment_claimed';
+  return `<div class="offer glass"><div class="otop"><div class="who">${ava(w.user)}<span>${esc(uLabel(w.user))}</span></div><span class="badge ${w.status}">${claimed ? 'Сообщил об оплате' : 'Оплачено ' + w.fee + ' ⭐'}</span></div>
+    <div class="item" style="padding:0;margin:0 0 10px;background:none;border:0;animation:none"><div class="pic">${img(g)}</div><div class="tx"><b>${esc(g.name)} ${fmtNum(g.number)}</b><small>Отправить на ${esc(w.to || uLabel(w.user))}</small></div>${g.link ? `<button class="x" data-link="${esc(g.link)}">${I.ext}</button>` : ''}</div>
+    ${claimed ? `<div class="note warn" style="margin-bottom:10px">${I.info}<div>Проверьте, что на @${esc(D().relayer)} пришли ${w.fee} ⭐ от этого пользователя.</div></div>` : ''}
+    <div class="oact" style="margin-top:0"><button class="btn danger" data-wreject="${esc(w.id)}">Отклонить</button>${claimed ? `<button class="btn okb" data-wconfirm="${esc(w.id)}">Оплата пришла</button>` : `<button class="btn okb" data-wsent="${esc(w.id)}">Отправил</button>`}</div></div>`;
+}
+
+function minis(gs) {
+  if (!gs.length) return '<div class="mname" style="color:var(--dim)">недоступно</div>';
+  return `<div class="minis">${gs.slice(0, 4).map(g => `<div class="mini">${img(g)}</div>`).join('')}</div><div class="mname">${esc(gs.length === 1 ? gs[0].name + ' ' + fmtNum(gs[0].number) : giftsWord(gs.length))}</div>`;
+}
+function offerLists(list) {
+  if (!list.length) return '';
+  const act = list.filter(o => o.status === 'pending'), hist = list.filter(o => o.status !== 'pending').sort((a, b) => (b.closedAt || b.createdAt) - (a.closedAt || a.createdAt));
+  let h = act.length ? act.map(offerCard).join('') : `<div class="note" style="margin-bottom:12px">${I.info}<div>Активных заявок нет. Старые заявки — в истории ниже.</div></div>`;
+  if (hist.length) h += `<div class="sub"><span>История</span><span>${hist.length}</span></div>` + hist.map((o, i) => offerCard(o, i, true)).join('');
+  return h;
+}
+function offerCard(o, i, old) {
+  const other = o.incoming ? o.from : o.to;
+  const youGive = o.incoming ? o.get : o.give, youGet = o.incoming ? o.give : o.get;
+  const acts = o.status !== 'pending' ? '' : o.incoming
+    ? `<div class="oact"><button class="btn danger" data-oact="declineOffer" data-id="${esc(o.id)}">Отклонить</button><button class="btn okb" data-oact="acceptOffer" data-id="${esc(o.id)}">Принять</button></div>`
+    : `<div class="oact"><button class="btn sec" data-oact="cancelOffer" data-id="${esc(o.id)}">Отменить заявку</button></div>`;
+  const why = o.status !== 'pending' && o.reason ? `<div class="oreason">${I.info}<span>${esc(o.reason)}${o.auto ? ' — заявка отменена автоматически' : ''}</span></div>` : '';
+  return `<article class="offer glass${old ? ' old' : ''}" style="animation-delay:${i * 40}ms">
+    <div class="otop"><div class="who">${ava(other)}<span>${esc(uLabel(other))}</span></div><div style="display:flex;align-items:center;gap:8px"><span class="otime">${ago(o.createdAt)}</span><span class="badge ${o.status}">${O_ST[o.status]}</span></div></div>
+    <div class="swaprow"><div class="side"><small>Вы отдаёте</small>${minis(youGive)}</div><div class="arrow">${I.swap}</div><div class="side"><small>Вы получаете</small>${minis(youGet)}</div></div>
+    ${o.comment ? `<div class="quote">«${esc(o.comment)}»</div>` : ''}${why}${acts}</article>`;
+}
+
+/* =====================================================================
+   Нижние листы
+   ===================================================================== */
+let sheetOpen = false, sheetKind = '';
+function openSheet(html, kind = '', keep) {
+  const st = $('sheet').scrollTop;
+  $('sbody').innerHTML = html; $('sheet').scrollTop = keep ? st : 0; sheetKind = kind;
+  if (!sheetOpen) { const sh = $('sheet'); sh.classList.remove('opening'); void sh.offsetWidth; sh.classList.add('opening'); clearTimeout(openSheet._t); openSheet._t = setTimeout(() => sh.classList.remove('opening'), 800); }
+  $('sheet').classList.add('show'); $('sback').classList.add('show'); sheetOpen = true;
+  try { tg && tg.BackButton && tg.BackButton.show() } catch (e) {}
+}
+function closeSheet() {
+  if (reasonCb) { const cb = reasonCb; reasonCb = null; cb(null); }
+  $('sheet').classList.remove('show'); $('sback').classList.remove('show'); sheetOpen = false; sheetKind = '';
+  try { if (S.view === 'market') tg && tg.BackButton && tg.BackButton.hide() } catch (e) {}
+}
+const head = t => `<div class="shh"><h3>${t}</h3><button class="x" data-act="close" aria-label="Закрыть">${I.x}</button></div>`;
+
+function openGift(id, keep) {
+  const g = byId(id); if (!g) return;
+  const d = D(), mine = g.owner && g.owner.id === d.me.id, fav = S.favs.has(g.id);
+  const attrs = [['Модель', g.model], ['Фон', g.backdrop], ['Узор', g.symbol]].filter(a => a[1]);
+  const w = d.withdrawals.find(x => x.giftId === g.id && !['sent', 'rejected', 'cancelled'].includes(x.status));
+  let actions;
+  if (mine) {
+    actions = g.status === 'withdrawing'
+      ? (w && w.status === 'awaiting_payment' ? `<button class="btn star block" data-wpay="${esc(w.id)}">Оплатить вывод · ${w.fee} ${starI}</button>` : `<button class="btn sec block" data-act="close">Вывод в процессе</button>`)
+      : g.locked ? `<button class="btn sec block" data-go="offers">Участвует в заявке</button>`
+      : `<button class="btn star block" data-withdraw="${esc(g.id)}">${I.out}Вывести · ${d.fee} ${starI}</button>`;
+  } else {
+    actions = `<button class="btn block" data-offer="${esc(g.id)}" ${g.locked || g.status !== 'available' ? 'disabled' : ''}>${I.swap}${g.locked ? 'Сейчас в сделке' : 'Предложить обмен'}</button>`;
+  }
+  openSheet(`${head('Подарок')}
+    <div class="big">${img(g)}</div>
+    <div class="dtitle"><h2>${esc(g.name)}</h2><span>${fmtNum(g.number)}</span></div>
+    ${attrs.length ? `<div class="attrs">${attrs.map(([k, v]) => `<div class="attr glass"><small>${k}</small><b>${esc(v.name)}</b>${v.rarity ? `<i>${esc(v.rarity)}%</i>` : ''}</div>`).join('')}</div>` : ''}
+    <div class="orow glass">${ava(g.owner)}<div><small>Владелец в обменнике</small><b>${esc(mine ? 'Вы' : uLabel(g.owner))}</b></div>${g.link ? `<button class="x" data-link="${esc(g.link)}" aria-label="Открыть в Telegram">${I.ext}</button>` : ''}</div>
+    <div class="acts">${actions}<button class="sq glass" data-fav="${esc(g.id)}" aria-label="В избранное" style="color:${fav ? '#ff5c7a' : '#cfd2df'}">${fav ? I.heart.replace('fill="none"', 'fill="currentColor"') : I.heart}</button></div>`, 'gift:' + g.id, keep);
+}
+
+let pick = new Set();
+function openOffer(id) {
+  const t = byId(id), d = D(); if (!t) return;
+  if (t.locked || t.status !== 'available') return toast('Этот подарок сейчас в другой сделке', true);
+  if (d.offers.some(o => !o.incoming && o.status === 'pending' && o.get.some(g => g.id === t.id))) return toast('Вы уже отправили заявку на этот подарок', true);
+  pick = new Set();
+  const avail = d.mine.filter(g => g.status === 'available' && !g.locked);
+  if (!d.mine.length) return openSheet(`${head('Предложить обмен')}${empty(I.gift, 'Сначала добавьте свой NFT', `Чтобы предложить обмен, отправьте подарок на @${esc(d.relayer)} и зарегистрируйте его.`, `<button class="btn" data-act="add">${I.plus}Добавить NFT</button>`)}`);
+  openSheet(`${head('Предложить обмен')}
+    <div class="ptarget glass"><div class="mini">${img(t)}</div><div><small>Вы получаете</small><b>${esc(t.name)} ${fmtNum(t.number)}</b><small>от ${esc(uLabel(t.owner))}</small></div></div>
+    <div class="plabel"><span>Что вы отдаёте</span><span id="pickCount">0 выбрано</span></div>
+    ${avail.length ? `<div class="pgrid">${avail.map(g => `<button class="pick" data-pick="${esc(g.id)}"><span class="ck">${I.check}</span>${g.image ? `<img src="${esc(g.image)}" alt="">` : '<div style="aspect-ratio:1;display:grid;place-items:center;font-size:30px">🎁</div>'}<div class="pn">${esc(g.name)} ${fmtNum(g.number)}</div></button>`).join('')}</div>`
+      : `<p style="color:var(--muted);font-size:13px;margin:0 2px 14px">Все ваши подарки уже участвуют в других заявках или выводятся.</p>`}
+    <input class="field" id="offerComment" maxlength="140" placeholder="Комментарий владельцу (необязательно)">
+    <button class="btn block" id="sendOffer" data-target="${esc(t.id)}" disabled>${I.swap}Отправить предложение</button>`, 'offer');
+}
+function updatePick() {
+  document.querySelectorAll('[data-pick]').forEach(b => b.classList.toggle('on', pick.has(b.dataset.pick)));
+  $('pickCount').textContent = pick.size + ' выбрано';
+  $('sendOffer').disabled = !pick.size;
+}
+
+function openAdd() {
+  const d = D();
+  openSheet(`${head('Добавить NFT')}
+    <ol class="steps">
+      <li><div>Отправьте NFT-подарок на аккаунт <b>@${esc(d.relayer)}</b> в Telegram.</div></li>
+      <li><div>Скопируйте ссылку на этот подарок (в Telegram: открыть подарок → «Поделиться» → «Копировать ссылку») и вставьте ниже.</div></li>
+      <li><div>Администратор проверит, что подарок пришёл <b>именно от вас</b>, и он появится в «Мои NFT».</div></li>
+    </ol>
+    <button class="btn sec block" data-link="https://t.me/${esc(d.relayer)}" style="margin:6px 0 14px">${I.send}Открыть @${esc(d.relayer)}</button>
+    <label class="flabel">Ссылка на подарок</label>
+    <input class="field" id="depLink" placeholder="https://t.me/nft/PlushPepe-1" autocomplete="off" inputmode="url">
+    <div id="depPreview"></div>
+    <div class="note glass">${I.shield}<div>Без подтверждения администратора подарок не зачисляется. Если ссылку на чужой подарок вставит кто-то другой, заявка будет отклонена.</div></div>
+    <button class="btn block" id="depBtn" disabled>Отправить на проверку</button>`, 'add');
+  setTimeout(() => { const i = $('depLink'); i && !inTG && i.focus(); }, 350);
+}
+
+let pvTimer;
+function linkPreview(inputId, boxId, btnId) {
+  const v = $(inputId).value, p = C.parseLink(v), box = $(boxId);
+  if (btnId) $(btnId).disabled = !p;
+  if (!p) { box.innerHTML = v.trim() ? `<div class="note warn">${I.info}<div>Ссылка должна выглядеть так: <b>https://t.me/nft/PlushPepe-1</b></div></div>` : ''; return; }
+  box.innerHTML = `<div class="preview glass"><div class="mini">${img(p)}</div><div style="min-width:0"><b>${esc(p.name)} ${fmtNum(p.number)}</b><small id="${boxId}Meta">Проверяем в Telegram…</small></div></div>`;
+  clearTimeout(pvTimer);
+  pvTimer = setTimeout(async () => {
+    try {
+      const r = await B.preview(v); const el = $(boxId + 'Meta'); if (!el) return;
+      const m = r.meta;
+      el.textContent = m ? [m.model && 'Модель: ' + m.model.name, m.owner && 'Сейчас у: ' + m.owner].filter(Boolean).join(' · ') || 'Подарок найден' : (DEMO ? 'Демо: данные Telegram не загружаются' : 'Telegram не ответил — администратор проверит вручную');
+    } catch (e) { const el = $(boxId + 'Meta'); if (el) el.textContent = e.message; }
+  }, 450);
+}
+
+function openWithdraw(id) {
+  const g = byId(id), d = D(); if (!g) return;
+  const to = d.me.username ? '@' + d.me.username : null;
+  const manual = (DEMO ? Demo.ctx.paymentMode : d.paymentMode) === 'manual';
+  openSheet(`${head('Вывод подарка')}
+    <div class="ptarget glass"><div class="mini">${img(g)}</div><div><small>Выводите</small><b>${esc(g.name)} ${fmtNum(g.number)}</b><small>на ${to ? esc(to) : 'ваш аккаунт Telegram'}</small></div></div>
+    <div class="feebox"><span class="s">${I.star}</span><div><b>${d.fee} звёзд</b><span>Комиссия за вывод${manual ? ` — отправляется на @${esc(d.relayer)}` : ' — оплата прямо в Telegram'}</span></div></div>
+    ${!to ? `<div class="note warn">${I.info}<div>У вас нет @username. Установите его в настройках Telegram, чтобы администратор мог отправить подарок.</div></div>` : ''}
+    <div class="note glass">${I.info}<div>После оплаты подарок пропадёт из обменника, а @${esc(d.relayer)} отправит его вам. Активные заявки с этим подарком будут отменены.</div></div>
+    <button class="btn star block" id="wBtn" data-gift="${esc(g.id)}">${manual ? 'Создать заявку на вывод' : `Оплатить ${d.fee} ${starI}`}</button>`, 'withdraw');
+}
+
+function openManualPay(w) {
+  const d = D();
+  openSheet(`${head('Оплата вывода')}
+    <div class="feebox"><span class="s">${I.star}</span><div><b>${w.fee} звёзд</b><span>Отправьте на аккаунт @${esc(d.relayer)}</span></div></div>
+    <ol class="steps">
+      <li><div>Откройте профиль <b>@${esc(d.relayer)}</b> и отправьте ${w.fee} ⭐ (например, подарком на ${w.fee} звёзд).</div></li>
+      <li><div>Вернитесь сюда и нажмите «Я оплатил».</div></li>
+      <li><div>Администратор проверит оплату и отправит вам подарок.</div></li>
+    </ol>
+    <div class="btnrow" style="margin-top:8px"><button class="btn sec" data-link="https://t.me/${esc(d.relayer)}">${I.send}@${esc(d.relayer)}</button><button class="btn okb" data-wclaim="${esc(w.id)}">Я оплатил</button></div>
+    <button class="btn danger block" data-wcancel="${esc(w.id)}" style="margin-top:8px">Отменить вывод</button>`, 'pay');
+}
+
+// Оплата счётом Telegram Stars
+async function payInvoice(wid, r, btn) {
+  if (DEMO) {
+    const w = D().withdrawals.find(x => x.id === wid);
+    openSheet(`${head('Telegram Stars · демо')}
+      <div class="feebox"><span class="s">${I.star}</span><div><b>${w ? w.fee : 50} звёзд</b><span>В настоящем приложении здесь откроется окно оплаты Telegram</span></div></div>
+      <div class="btnrow"><button class="btn danger" data-wcancel="${esc(wid)}">Отменить вывод</button><button class="btn star" data-demopay="${esc(wid)}">Оплатить</button></div>`, 'pay');
+    return;
+  }
+  if (!r || !r.invoiceLink) r = await act('payWithdrawal', { id: wid }, null, { btn });
+  if (!r || !r.invoiceLink) return;
+  closeSheet();
+  try { tg.openInvoice(r.invoiceLink, async status => {
+    if (status === 'paid') {
+      notifyH('success'); toast('Оплата прошла. Подарок скоро придёт');
+      for (let i = 0; i < 6; i++) { await new Promise(x => setTimeout(x, 1500)); await reload(); const w = D().withdrawals.find(x => x.id === wid); if (w && w.status !== 'awaiting_payment') break; }
+    } else if (status === 'failed') toast('Оплата не прошла', true);
+    else if (status === 'cancelled') toast('Оплата отменена. Оплатить можно позже в «Мои NFT»');
+  }); } catch (e) { openLink(r.invoiceLink); }
+}
+
+function openHow() {
+  const d = D();
+  openSheet(`${head('Как это работает')}
+    <ol class="steps">
+      <li><div><b>Депозит.</b> Отправьте NFT-подарок на @${esc(d.relayer)} и вставьте ссылку на него в «Добавить NFT».</div></li>
+      <li><div><b>Проверка.</b> Администратор убеждается, что подарок пришёл от вас, и зачисляет его на ваш профиль.</div></li>
+      <li><div><b>Обмен.</b> Предлагайте свои подарки за чужие. Когда владелец принимает заявку, подарки мгновенно меняются владельцами.</div></li>
+      <li><div><b>Вывод.</b> Любой подарок из профиля можно вывести на свой аккаунт Telegram. Комиссия — ${d.fee} ⭐.</div></li>
+    </ol>
+    <button class="btn block" data-act="add" style="margin-top:10px">${I.plus}Добавить NFT</button>`);
+}
+function openHistory() {
+  const d = D();
+  openSheet(`${head('Выводы')}${d.withdrawals.length ? d.withdrawals.map(wItem).join('') : empty(I.out, 'Выводов пока нет', `Вывести подарок можно из карточки в «Мои NFT». Комиссия ${d.fee} ⭐.`)}`);
+}
+function openSort() {
+  const o = [['new', 'Сначала новые'], ['num', 'Номер: по возрастанию'], ['numd', 'Номер: по убыванию'], ['name', 'По названию']];
+  openSheet(`${head('Сортировка')}<div class="list glass" style="margin:0">${o.map(([k, l]) => `<button class="row" data-sort="${k}"><span class="rt">${l}</span><span class="rv" style="color:#9fd3ff">${S.sort === k ? '✓' : ''}</span></button>`).join('')}</div>`);
+}
+
+/* =====================================================================
+   События
+   ===================================================================== */
+const isManual = () => (DEMO ? Demo.ctx.paymentMode : D().paymentMode) === 'manual';
+function go(v) {
+  if (!TITLES[v]) return;
+  if (modalCb) closeModal(false);
+  if (sheetOpen) closeSheet();
+  if (S.view === v) { window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+  S.view = v; S.filter = 'all'; S.enter = true; haptic('light'); render(); window.scrollTo(0, 0);
+  try { v === 'market' ? tg.BackButton.hide() : tg.BackButton.show() } catch (e) {}
+}
+function toggleFav(id) { S.favs.has(id) ? S.favs.delete(id) : S.favs.add(id); saveFavs(); haptic('light'); toast(S.favs.has(id) ? 'Добавлено в избранное' : 'Убрано из избранного'); }
+// Собственное окно подтверждения: работает везде (системные confirm() блокируются во встроенных окнах)
+let modalCb = null;
+function confirmBox(text, okLabel = 'Подтвердить', kind = '', icon = I.info) {
+  return new Promise(r => {
+    if (modalCb) modalCb(false);
+    modalCb = r;
+    $('mtext').textContent = text; $('mok').textContent = okLabel; $('mok').className = 'btn ' + kind; $('mic').innerHTML = icon;
+    $('modal').classList.add('show'); haptic('medium');
+    setTimeout(() => $('mok').focus({ preventScroll: true }), 50);
+  });
+}
+function closeModal(v) { $('modal').classList.remove('show'); const cb = modalCb; modalCb = null; if (cb) cb(v); }
+let reasonCb = null;
+function promptBox(title) {
+  return new Promise(res => {
+    reasonCb = res;
+    openSheet(`${head(title)}<input class="field" id="reasonInp" maxlength="200" placeholder="Например: подарок не пришёл"><div class="btnrow"><button class="btn sec" data-act="close">Назад</button><button class="btn danger" id="reasonOk">Отклонить</button></div>`, 'reason');
+  });
+}
+
+document.addEventListener('click', async e => {
+  if (e.target.id === 'modal') return closeModal(false);
+  const el = e.target.closest('button,[data-open],[data-wopen]');
+  if (!el) return;
+  if (el.id === 'mok') return closeModal(true);
+  if (el.id === 'mcancel') return closeModal(false);
+  const d = el.dataset;
+  const card = el.closest('.offer,.item');
+  if (d.act === 'more') { S.marketLimit += 24; haptic('light'); return render(); }
+  if (d.link) { e.preventDefault(); e.stopPropagation(); return openLink(d.link); }
+  if (d.fav) {
+    e.stopPropagation(); toggleFav(d.fav); const on = S.favs.has(d.fav);
+    if (sheetKind.startsWith('gift:')) { openGift(d.fav, true); const b = document.querySelector('#sbody [data-fav]'); b && b.classList.add('pop'); }
+    document.querySelectorAll(`.favb[data-fav="${CSS.escape(d.fav)}"]`).forEach(b => { b.classList.toggle('on', on); b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); });
+    if ((S.view === 'market' && S.filter === 'fav') || S.view === 'favorites' || S.view === 'profile') render(); else { renderChips(D().market); $('content')._h = null; }
+    return;
+  }
+  if (d.offer) { e.stopPropagation(); haptic('medium'); return openOffer(d.offer); }
+  if (d.pick) { pick.has(d.pick) ? pick.delete(d.pick) : pick.add(d.pick); haptic('light'); return updatePick(); }
+  if (d.withdraw) { e.stopPropagation(); return openWithdraw(d.withdraw); }
+  if (d.wpay || d.wopen) {
+    e.stopPropagation();
+    const id = d.wpay || d.wopen, w = D().withdrawals.find(x => x.id === id);
+    if (!w) return toast('Заявка на вывод уже неактуальна', true);
+    return isManual() ? openManualPay(w) : payInvoice(w.id, null, el);
+  }
+  if (d.demopay) { el.classList.add('loading'); await sleep(450); S.data = Demo.demoPay(d.demopay); closeSheet(); notifyH(); toast('Оплачено. Заявка ушла администратору'); return render(); }
+  if (d.wclaim) { const r = await act('claimManualPayment', { id: d.wclaim }, 'Спасибо. Администратор проверит оплату', { btn: el }); if (r) closeSheet(); return; }
+  if (d.wcancel) { const r = await act('cancelWithdrawal', { id: d.wcancel }, 'Вывод отменён, подарок снова доступен', { btn: el }); if (r) closeSheet(); return; }
+  if (d.dcancel) { if (await confirmBox('Отменить заявку на зачисление?', 'Отменить заявку', 'danger', I.x)) await act('cancelDeposit', { id: d.dcancel }, 'Заявка отменена', { row: card }); return; }
+  if (d.dapprove) { if (await confirmBox('Подарок точно пришёл на @' + D().relayer + ' от этого пользователя?', 'Зачислить', 'okb', I.check.replace('#fff', 'currentColor'))) await act('approveDeposit', { id: d.dapprove }, 'Подарок зачислен владельцу', { row: card }); return; }
+  if (d.dreject) { const reason = await promptBox('Отклонить заявку'); if (reason !== null) await act('rejectDeposit', { id: d.dreject, reason }, 'Заявка отклонена', { row: document.querySelector(`[data-dreject="${CSS.escape(d.dreject)}"]`)?.closest('.offer') }); return; }
+  if (d.wsent) { if (await confirmBox('Вы отправили подарок пользователю с аккаунта @' + D().relayer + '?', 'Да, отправил', 'okb', I.send)) await act('adminMarkSent', { id: d.wsent }, 'Вывод завершён', { row: card }); return; }
+  if (d.wconfirm) { if (await confirmBox('Звёзды от пользователя пришли на @' + D().relayer + '?', 'Оплата пришла', 'okb', I.star)) await act('adminConfirmPayment', { id: d.wconfirm }, 'Оплата подтверждена', { btn: el }); return; }
+  if (d.wreject) { const reason = await promptBox('Отклонить вывод'); if (reason !== null) await act('adminRejectWithdrawal', { id: d.wreject, reason }, 'Вывод отклонён, подарок возвращён в профиль', { row: document.querySelector(`[data-wreject="${CSS.escape(d.wreject)}"]`)?.closest('.offer') }); return; }
+  if (d.open) { haptic('light'); return openGift(d.open); }
+  if (d.go) return go(d.go);
+  if (d.filter) { if (S.filter !== d.filter) { S.filter = d.filter; S.enter = true; haptic('light'); render(); } return; }
+  if (d.otab) { if (S.offerTab !== d.otab) { S.offerTab = d.otab; S.enter = true; haptic('light'); render(); } return; }
+  if (d.atab) { if (S.adminTab !== d.atab) { S.adminTab = d.atab; S.enter = true; haptic('light'); render(); } return; }
+  if (d.sort) { S.sort = d.sort; S.enter = true; closeSheet(); return render(); }
+  if (d.oact) {
+    const msgs = { acceptOffer: 'Обмен совершён. Подарки уже в профилях', declineOffer: 'Заявка отклонена', cancelOffer: 'Заявка отменена' };
+    if (d.oact === 'acceptOffer') {
+      const o = D().offers.find(x => x.id === d.id); const ids = new Set(o ? [...o.give, ...o.get].map(g => g.id) : []);
+      const clash = D().offers.filter(x => x.id !== d.id && x.status === 'pending' && [...x.give, ...x.get].some(g => ids.has(g.id))).length;
+      const warn = clash ? `\n\nДругие заявки с этими подарками (${clash}) будут отменены автоматически.` : '';
+      if (!(await confirmBox('Принять обмен? Подарки сразу поменяются владельцами.' + warn, 'Принять обмен', 'okb', I.swap))) return;
+      const r = await act('acceptOffer', { id: d.id }, null, { btn: el });
+      if (r) { notifyH('success'); toast(clash ? `Обмен совершён. Отменено других заявок: ${clash}` : msgs.acceptOffer); }
+      return;
+    }
+    if (d.oact === 'declineOffer' && !(await confirmBox('Отклонить предложение обмена?', 'Отклонить', 'danger', I.x))) return;
+    if (d.oact === 'cancelOffer' && !(await confirmBox('Отменить вашу заявку на обмен?', 'Отменить заявку', 'danger', I.x))) return;
+    return act(d.oact, { id: d.id }, msgs[d.oact], { btn: el });
+  }
+  if (el.id === 'sendOffer') {
+    if (!pick.size) return;
+    const r = await act('createOffer', { give: [...pick], get: [d.target], comment: $('offerComment').value.trim() }, 'Предложение отправлено', { btn: el });
+    if (r) { closeSheet(); S.offerTab = 'out'; }
+    return;
+  }
+  if (el.id === 'depBtn') {
+    const r = await act('createDeposit', { link: $('depLink').value }, 'Заявка отправлена на проверку', { btn: el });
+    if (r) { closeSheet(); go('mine'); }
+    return;
+  }
+  if (el.id === 'regBtn') {
+    if (!C.parseLink($('regLink').value)) return toast('Вставьте ссылку на подарок, например https://t.me/nft/PlushPepe-1', true);
+    if (!$('regOwner').value.trim()) return toast('Укажите @username или ID владельца', true);
+    const r = await act('adminRegister', { link: $('regLink').value, owner: $('regOwner').value }, 'NFT зарегистрирован', { btn: el });
+    if (r) { $('regLink').value = ''; $('regOwner').value = ''; $('regPreview').innerHTML = ''; }
+    return;
+  }
+  if (el.id === 'wBtn') {
+    const r = await act('requestWithdrawal', { giftId: d.gift }, null, { btn: el });
+    if (!r) return;
+    const w = D().withdrawals.find(x => x.giftId === d.gift && x.status === 'awaiting_payment');
+    if (!w) { closeSheet(); return toast('Заявка на вывод создана'); }
+    if (isManual()) return openManualPay(w);
+    return payInvoice(w.id, r);
+  }
+  if (el.id === 'reasonOk') { const v = $('reasonInp').value.trim(); const cb = reasonCb; reasonCb = null; closeSheet(); cb && cb(v); return; }
+  if (el.id === 'sortBtn') return openSort();
+  if (el.id === 'clearSearch') { e.preventDefault(); $('search').value = ''; return render(); }
+  if (d.act) {
+    const A = {
+      close: closeSheet, how: openHow, add: openAdd, history: openHistory,
+      reset: () => { $('search').value = ''; S.filter = 'all'; render(); },
+      copyRelayer: () => copyText('@' + D().relayer).then(ok => toast(ok ? 'Скопировано: @' + D().relayer : '@' + D().relayer)),
+      demoMode: () => { Demo.ctx.paymentMode = Demo.ctx.paymentMode === 'invoice' ? 'manual' : 'invoice'; toast(Demo.ctx.paymentMode === 'invoice' ? 'Оплата счётом Telegram Stars' : 'Оплата вручную на @' + D().relayer); render(); }
+    };
+    (A[d.act] || (() => {}))();
+  }
+});
+document.addEventListener('input', e => {
+  if (e.target.id === 'search') { clearTimeout(window._st); window._st = setTimeout(render, 120); $('searchBox').classList.toggle('has', !!e.target.value); }
+  if (e.target.id === 'depLink') linkPreview('depLink', 'depPreview', 'depBtn');
+  if (e.target.id === 'regLink') linkPreview('regLink', 'regPreview');
+});
+$('sback').addEventListener('click', closeSheet);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && modalCb) return closeModal(false);
+  if (e.key === 'Escape' && sheetOpen) closeSheet();
+  if (e.key === 'Enter' && e.target.matches && e.target.matches('.card[data-open]')) openGift(e.target.dataset.open);
+});
+try { tg.BackButton.onClick(() => modalCb ? closeModal(false) : sheetOpen ? closeSheet() : go('market')); } catch (e) {}
+// Свайп вниз по шапке листа — закрыть
+(() => {
+  const sh = $('sheet'); let y0 = null, dy = 0;
+  const start = e => { if (sh.scrollTop > 0 && !e.target.closest('#grab')) return; y0 = (e.touches ? e.touches[0] : e).clientY; dy = 0; };
+  const move = e => { if (y0 === null) return; dy = Math.max(0, (e.touches ? e.touches[0] : e).clientY - y0); if (dy > 4) { sh.classList.add('drag'); sh.style.transform = `translate3d(0,${dy}px,0)`; if (e.cancelable && e.touches) e.preventDefault(); } };
+  const end = () => { if (y0 === null) return; y0 = null; sh.classList.remove('drag'); sh.style.transform = ''; if (dy > 110) closeSheet(); dy = 0; };
+  $('grab').addEventListener('touchstart', start, { passive: true }); $('grab').addEventListener('mousedown', start);
+  // touchmove только на ручке листа — прокрутка страницы не блокируется
+  $('grab').addEventListener('touchmove', move, { passive: false }); $('grab').addEventListener('touchend', end); $('grab').addEventListener('touchcancel', end);
+  window.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
+})();
+
+/* =====================================================================
+   Старт
+   ===================================================================== */
+async function reload() {
+  try { S.data = await B.state(); } catch (e) { toast(e.message, true); }
+  if (S.loading) S.enter = true;
+  S.loading = false; render(); renderMe();
+}
+function renderMe() {
+  const me = D().me || {};
+  $('meAvaWrap').innerHTML = ava(me);
+  $('meName').textContent = me.username ? '@' + me.username : (me.name || 'Профиль');
+}
+(async function init() {
+  if (DEMO) $('banner').innerHTML = `<div class="banner"><b>Демо-режим.</b> Примеры данных для проверки дизайна, вы видите и админ-панель. Настоящие данные появятся, когда приложение откроется через @${C.BOT} с запущенным сервером.</div>`;
+  render();
+  await loadFavs();
+  await reload();
+  if (inTG) document.addEventListener('visibilitychange', () => { if (!document.hidden) reload(); });
+})();
+</script>
+</body>
+</html>
